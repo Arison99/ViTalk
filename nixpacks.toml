@@ -1,11 +1,10 @@
+providers = ["python"]
+
 [phases.setup]
 nixPkgs = ["portaudio", "alsa-lib", "libffi", "libpulseaudio", "ffmpeg"]
 
 [phases.install]
-cmds = [
-  "pip install --upgrade pip",
-  "pip install -r requirements.txt"
-]
+cmds = ["pip install -r requirements.txt"]
 
 [start]
 cmd = "python app.py"
