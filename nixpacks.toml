@@ -6,26 +6,20 @@ nixPkgs = [
   "python310Packages.pip",
   "python310Packages.virtualenv",
   "portaudio",
-  "portaudio.dev",
   "pkg-config",
-  "alsa-lib",
-  "alsa-lib.dev",
+  "alsaLib",
   "libffi",
-  "libffi.dev",
-  "libpulseaudio",
-  "libpulseaudio.dev",
+  "pulseaudio",
   "ffmpeg",
-  "gcc"
+  "gcc",
+  "python310Packages.pyaudio"
 ]
 
 [phases.install]
 installScript = """
-export PKG_CONFIG_PATH="/nix/store/*/lib/pkgconfig"
-export PORTAUDIO_PATH="$(pkg-config --variable=libdir portaudio-2.0)"
-export LDFLAGS="-L$PORTAUDIO_PATH"
-export CFLAGS="-I$(pkg-config --variable=includedir portaudio-2.0)"
 python3 -m venv /app/venv
 source /app/venv/bin/activate
+sed -i '/PyAudio/d' requirements.txt
 pip install --no-cache-dir -r requirements.txt
 """
 
