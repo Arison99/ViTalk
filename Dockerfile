@@ -11,12 +11,22 @@ RUN apt-get update && apt-get install -y \
     libportaudiocpp0 \
     ffmpeg \
     alsa-utils \
+    espeak \
+    espeak-ng \
+    jackd2 \
+    libjack-jackd2-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Set up ALSA loopback device
-RUN mkdir -p /usr/share/alsa/ && \
-    echo 'pcm.!default { type null }' > /usr/share/alsa/alsa.conf && \
-    echo 'ctl.!default { type null }' >> /usr/share/alsa/alsa.conf
+# Configure jackd to run without realtime privileges
+RUN echo "JACK_NO_AUDIO_RESERVATION=1" >> /etc/environment \
+    && echo "JACK_NO_START_SERVER=1" >> /etc/environment
+
+# Set up ALSA and JACK configuration
+COPY alsa-config.conf /usr/share/alsa/alsa.conf
+ENV AUDIODEV=null
+ENV JACK_NO_AUDIO_RESERVATION=1
+ENV JACK_NO_START_SERVER=1
+ENV ESPEAK_DATA_PATH=/usr/lib/x86_64-linux-gnu/espeak-ng-data
 
 # Set environment variables for audio
 ENV PYTHONUNBUFFERED=1
