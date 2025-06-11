@@ -3,7 +3,7 @@ providers = ["python"]
 [phases.setup]
 nixPkgs = [
   "python3",
-  "python3.pkgs.pip",
+  "python3Packages.pip",
   "portaudio",
   "alsa-lib",
   "libffi",
@@ -12,7 +12,16 @@ nixPkgs = [
 ]
 
 [phases.install]
-cmds = ["python3 -m pip install -r requirements.txt"]
+aptPkgs = [
+  "python3-pip"
+]
+
+[phases.install]
+cmds = [
+    "curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py",
+    "python3 get-pip.py --user",
+    "python3 -m pip install --user -r requirements.txt"
+]
 
 [start]
 cmd = "python app.py"
