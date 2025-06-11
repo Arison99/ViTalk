@@ -1,8 +1,5 @@
 Flask
 requests
-edge-tts
-openai-whisper
-torch  # Required by Whisper
 werkzeug  # Usually comes with Flask
 pyttsx3
 SpeechRecognition 
