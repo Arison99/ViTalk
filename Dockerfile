@@ -10,7 +10,17 @@ RUN apt-get update && apt-get install -y \
     libportaudio2 \
     libportaudiocpp0 \
     ffmpeg \
+    alsa-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# Set up ALSA loopback device
+RUN mkdir -p /usr/share/alsa/ && \
+    echo 'pcm.!default { type null }' > /usr/share/alsa/alsa.conf && \
+    echo 'ctl.!default { type null }' >> /usr/share/alsa/alsa.conf
+
+# Set environment variables for audio
+ENV PYTHONUNBUFFERED=1
+ENV AUDIODEV=null
 
 WORKDIR /app
 
@@ -24,5 +34,8 @@ COPY . .
 # Expose the port your Flask app runs on
 EXPOSE 5000
 
+# Make start script executable
+RUN chmod +x start.py
+
 # Command to run the application
-CMD ["python", "app.py"]
+CMD ["python", "start.py"]
