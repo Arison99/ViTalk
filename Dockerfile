@@ -37,5 +37,8 @@ EXPOSE 5000
 # Make start script executable
 RUN chmod +x start.py
 
-# Command to run the application
-CMD ["python", "start.py"]
+# Install gunicorn
+RUN pip install gunicorn
+
+# Command to run the application with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "start:app"]
