@@ -1,0 +1,75 @@
+{% extends "radio/base.html" %}
+
+{% block title %}Error - Radio Browser{% endblock %}
+
+{% block content %}
+<div class="text-center py-16">
+    <div class="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <i class="fas fa-exclamation-triangle text-red-500 text-4xl"></i>
+    </div>
+    
+    <h1 class="text-3xl font-bold text-gray-900 mb-4">Oops! Something went wrong</h1>
+    
+    <p class="text-lg text-gray-600 mb-8 max-w-md mx-auto">
+        {{ message or "We're sorry, but something unexpected happened. Please try again." }}
+    </p>
+    
+    <!-- Action Buttons -->
+    <div class="space-x-4">
+        <button onclick="history.back()" 
+                class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            <i class="fas fa-arrow-left mr-2"></i>Go Back
+        </button>
+        
+        <a href="{{ url_for('radio.index') }}" 
+           class="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors">
+            <i class="fas fa-home mr-2"></i>Home Page
+        </a>
+    </div>
+    
+    <!-- Helpful Links -->
+    <div class="mt-12 bg-gray-50 rounded-lg p-8 max-w-2xl mx-auto">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">What can you do?</h2>
+        
+        <div class="grid md:grid-cols-3 gap-6 text-left">
+            <div>
+                <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-search text-blue-600 text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900 mb-2">Search Stations</h3>
+                <p class="text-sm text-gray-600 mb-3">Find radio stations by name, country, or genre.</p>
+                <a href="{{ url_for('radio.search') }}" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                    Start Searching →
+                </a>
+            </div>
+            
+            <div>
+                <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-globe text-green-600 text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900 mb-2">Browse Categories</h3>
+                <p class="text-sm text-gray-600 mb-3">Explore popular music genres and categories.</p>
+                <a href="{{ url_for('radio.index') }}" class="text-green-600 hover:text-green-800 text-sm font-medium">
+                    Browse Now →
+                </a>
+            </div>
+            
+            <div>
+                <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
+                    <i class="fas fa-heart text-purple-600 text-xl"></i>
+                </div>
+                <h3 class="font-semibold text-gray-900 mb-2">Your Favorites</h3>
+                <p class="text-sm text-gray-600 mb-3">Check out your saved favorite stations.</p>
+                <a href="{{ url_for('radio.favorites') }}" class="text-purple-600 hover:text-purple-800 text-sm font-medium">
+                    View Favorites →
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Report Issue -->
+    <div class="mt-8 text-sm text-gray-500">
+        If this problem persists, please try refreshing the page or contact support.
+    </div>
+</div>
+{% endblock %}

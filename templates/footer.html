@@ -1,0 +1,294 @@
+    <!-- Include the draggable footer -->
+    <div id="footer-container"></div>
+
+    <script>
+        // Load footer template via AJAX (simulated with direct insertion for demo)
+        function loadFooter() {
+            const footerHTML = `
+                <!-- templates/footer.html -->
+                <style>
+                    #mic-button {
+                        position: fixed;
+                        bottom: 20px;
+                        right: 20px;
+                        z-index: 9999;
+                        background: linear-gradient(135deg, rgb(92, 37, 193), rgb(147, 51, 234));
+                        border: none;
+                        border-radius: 50%;
+                        padding: 18px;
+                        color: white;
+                        font-size: 24px;
+                        cursor: grab;
+                        box-shadow: 0 6px 20px rgba(92, 37, 193, 0.4);
+                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                        user-select: none;
+                        width: 60px;
+                        height: 60px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    #mic-button:hover {
+                        transform: scale(1.1);
+                        box-shadow: 0 8px 25px rgba(92, 37, 193, 0.6);
+                        background: linear-gradient(135deg, rgb(107, 52, 208), rgb(162, 66, 249));
+                    }
+
+                    #mic-button:active {
+                        cursor: grabbing;
+                        transform: scale(0.95);
+                    }
+
+                    #mic-button.recording {
+                        background: linear-gradient(135deg, #ef4444, #dc2626);
+                        animation: pulse 1s infinite;
+                    }
+
+                    #mic-button.dragging {
+                        cursor: grabbing;
+                        transform: scale(1.1);
+                        transition: none;
+                    }
+
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); }
+                        50% { transform: scale(1.05); }
+                    }
+
+                    .mic-tooltip {
+                        position: absolute;
+                        bottom: 70px;
+                        right: 0;
+                        background: rgba(0, 0, 0, 0.8);
+                        color: white;
+                        padding: 8px 12px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        white-space: nowrap;
+                        opacity: 0;
+                        transform: translateY(10px);
+                        transition: all 0.3s ease;
+                        pointer-events: none;
+                    }
+
+                    #mic-button:hover .mic-tooltip {
+                        opacity: 1;
+                        transform: translateY(0);
+                    }
+                </style>
+
+                <button id="mic-button" title="Voice Assistant - Drag me around!">
+                    🎤
+                    <div class="mic-tooltip">Click to record • Drag to move</div>
+                </button>
+            `;
+            
+            document.getElementById('footer-container').innerHTML = footerHTML;
+            initializeVoiceAssistant();
+        }
+
+        function initializeVoiceAssistant() {
+            const micBtn = document.getElementById('mic-button');
+            let isDragging = false;
+            let dragOffset = { x: 0, y: 0 };
+            let isRecording = false;
+
+            // Dragging functionality
+            micBtn.addEventListener('mousedown', (e) => {
+                if (isRecording) return; // Don't drag while recording
+                
+                isDragging = true;
+                micBtn.classList.add('dragging');
+                
+                const rect = micBtn.getBoundingClientRect();
+                dragOffset.x = e.clientX - rect.left;
+                dragOffset.y = e.clientY - rect.top;
+                
+                e.preventDefault();
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                
+                const x = e.clientX - dragOffset.x;
+                const y = e.clientY - dragOffset.y;
+                
+                // Keep button within viewport bounds
+                const maxX = window.innerWidth - micBtn.offsetWidth;
+                const maxY = window.innerHeight - micBtn.offsetHeight;
+                
+                const constrainedX = Math.max(0, Math.min(x, maxX));
+                const constrainedY = Math.max(0, Math.min(y, maxY));
+                
+                micBtn.style.left = constrainedX + 'px';
+                micBtn.style.top = constrainedY + 'px';
+                micBtn.style.right = 'auto';
+                micBtn.style.bottom = 'auto';
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    micBtn.classList.remove('dragging');
+                }
+            });
+
+            // Touch support for mobile
+            micBtn.addEventListener('touchstart', (e) => {
+                if (isRecording) return;
+                
+                isDragging = true;
+                micBtn.classList.add('dragging');
+                
+                const touch = e.touches[0];
+                const rect = micBtn.getBoundingClientRect();
+                dragOffset.x = touch.clientX - rect.left;
+                dragOffset.y = touch.clientY - rect.top;
+                
+                e.preventDefault();
+            });
+
+            document.addEventListener('touchmove', (e) => {
+                if (!isDragging) return;
+                
+                const touch = e.touches[0];
+                const x = touch.clientX - dragOffset.x;
+                const y = touch.clientY - dragOffset.y;
+                
+                const maxX = window.innerWidth - micBtn.offsetWidth;
+                const maxY = window.innerHeight - micBtn.offsetHeight;
+                
+                const constrainedX = Math.max(0, Math.min(x, maxX));
+                const constrainedY = Math.max(0, Math.min(y, maxY));
+                
+                micBtn.style.left = constrainedX + 'px';
+                micBtn.style.top = constrainedY + 'px';
+                micBtn.style.right = 'auto';
+                micBtn.style.bottom = 'auto';
+                
+                e.preventDefault();
+            });
+
+            document.addEventListener('touchend', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    micBtn.classList.remove('dragging');
+                }
+            });
+
+            // Voice recording functionality (enhanced)
+            micBtn.addEventListener('click', async (e) => {
+                // Prevent click if we just finished dragging
+                if (isDragging) return;
+                
+                if (isRecording) return; // Prevent multiple recordings
+                
+                try {
+                    isRecording = true;
+                    micBtn.classList.add('recording');
+                    micBtn.innerHTML = '⏹️<div class="mic-tooltip">Recording... (3s)</div>';
+                    
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const mediaRecorder = new MediaRecorder(stream);
+                    let audioChunks = [];
+
+                    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                    
+                    mediaRecorder.onstop = async () => {
+                        // Clean up
+                        stream.getTracks().forEach(track => track.stop());
+                        isRecording = false;
+                        micBtn.classList.remove('recording');
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                        
+                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const formData = new FormData();
+                        formData.append('audio', blob, 'command.webm');
+
+                        try {
+                            // Show processing state
+                            micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
+                            
+                            const response = await fetch('/voice-command', {
+                                method: 'POST',
+                                body: formData
+                            });
+
+                            const result = await response.json();
+                            
+                            // Reset button
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                            
+                            if (result.redirect_url) {
+                                const utterance = new SpeechSynthesisUtterance(result.speech_response);
+                                speechSynthesis.speak(utterance);
+                                utterance.onend = () => {
+                                    window.location.href = result.redirect_url;
+                                };
+                            } else {
+                                speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
+                            }
+                        } catch (fetchError) {
+                            console.error('Voice command processing error:', fetchError);
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, there was an error processing your command."));
+                        }
+                    };
+
+                    mediaRecorder.start();
+                    
+                    // Auto-stop after 3 seconds
+                    setTimeout(() => {
+                        if (mediaRecorder.state === 'recording') {
+                            mediaRecorder.stop();
+                        }
+                    }, 3000);
+                    
+                } catch (error) {
+                    console.error('Voice Assistant Error:', error);
+                    isRecording = false;
+                    micBtn.classList.remove('recording');
+                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                    speechSynthesis.speak(new SpeechSynthesisUtterance("Microphone access denied."));
+                }
+            });
+
+            // Prevent context menu on right-click
+            micBtn.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+            });
+
+            // Handle window resize
+            window.addEventListener('resize', () => {
+                const rect = micBtn.getBoundingClientRect();
+                const maxX = window.innerWidth - micBtn.offsetWidth;
+                const maxY = window.innerHeight - micBtn.offsetHeight;
+                
+                if (rect.left > maxX) {
+                    micBtn.style.left = maxX + 'px';
+                }
+                if (rect.top > maxY) {
+                    micBtn.style.top = maxY + 'px';
+                }
+            });
+        }
+
+        // Load the footer when page loads
+        document.addEventListener('DOMContentLoaded', loadFooter);
+
+        // Alternative: Load footer via AJAX from external file
+        function loadFooterViaAJAX() {
+            fetch('/templates/footer.html')
+                .then(response => response.text())
+                .then(html => {
+                    document.getElementById('footer-container').innerHTML = html;
+                    initializeVoiceAssistant();
+                })
+                .catch(error => {
+                    console.error('Error loading footer:', error);
+                    // Fallback to inline version
+                    loadFooter();
+                });
+        }
+    </script>

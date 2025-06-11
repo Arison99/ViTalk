@@ -1,0 +1,448 @@
+{% extends "satellite/base.html" %}
+
+{% block title %}Satellite Details - SatTracker{% endblock %}
+
+{% block content %}
+<!-- Loading State -->
+<div id="loading-state" class="text-center py-12">
+    <div class="loading-pulse mb-4">
+        <i class="fas fa-satellite text-6xl text-satellite-gold"></i>
+    </div>
+    <h2 class="text-2xl font-bold mb-2">Loading Satellite Data...</h2>
+    <p class="text-gray-400">Fetching TLE data for NORAD ID: {{ satellite_id }}</p>
+</div>
+
+<!-- Error State -->
+<div id="error-state" class="hidden text-center py-12">
+    <div class="mb-4">
+        <i class="fas fa-exclamation-triangle text-6xl text-red-400"></i>
+    </div>
+    <h2 class="text-2xl font-bold mb-2 text-red-400">Satellite Not Found</h2>
+    <p class="text-gray-400 mb-6">Could not find satellite with NORAD ID: {{ satellite_id }}</p>
+    <div class="space-x-4">
+        <a href="{{ url_for('satellite.search_page') }}" 
+           class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+            <i class="fas fa-search mr-2"></i>Search Satellites
+        </a>
+        <a href="{{ url_for('satellite.index') }}" 
+           class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+            <i class="fas fa-home mr-2"></i>Go Home
+        </a>
+    </div>
+</div>
+
+<!-- Satellite Details -->
+<div id="satellite-details" class="hidden">
+    <!-- Header -->
+    <div class="glass-effect rounded-xl p-6 mb-6">
+        <div class="flex items-center justify-between flex-wrap gap-4">
+            <div class="flex items-center space-x-4">
+                <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center">
+                    <i class="fas fa-satellite text-2xl text-white"></i>
+                </div>
+                <div>
+                    <h1 id="satellite-name" class="text-3xl font-bold mb-1">Loading...</h1>
+                    <p class="text-gray-400">NORAD ID: <span id="satellite-norad" class="text-blue-400 font-mono">{{ satellite_id }}</span></p>
+                </div>
+            </div>
+            <div class="flex space-x-2">
+                <button onclick="refreshData()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    <i class="fas fa-sync-alt mr-2"></i>Refresh
+                </button>
+                <button onclick="toggleTracking()" 
+                        id="track-button"
+                        class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    <i class="fas fa-play mr-2"></i>Track
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- TLE Data -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Orbital Information -->
+            <div class="glass-effect rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-orbit text-blue-400 mr-3"></i>
+                    Orbital Information
+                </h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white bg-opacity-5 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Inclination</div>
+                        <div id="inclination" class="text-2xl font-bold text-blue-400">--°</div>
+                    </div>
+                    <div class="bg-white bg-opacity-5 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Orbital Period</div>
+                        <div id="orbital-period" class="text-2xl font-bold text-green-400">-- min</div>
+                    </div>
+                    <div class="bg-white bg-opacity-5 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Epoch</div>
+                        <div id="epoch" class="text-lg font-mono text-yellow-400">--</div>
+                    </div>
+                    <div class="bg-white bg-opacity-5 rounded-lg p-4">
+                        <div class="text-sm text-gray-400 mb-1">Status</div>
+                        <div class="flex items-center">
+                            <div class="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                            <span class="text-green-400 font-medium">Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TLE Raw Data -->
+            <div class="glass-effect rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-4 flex items-center">
+                    <i class="fas fa-code text-purple-400 mr-3"></i>
+                    TLE Data
+                </h2>
+                <div class="space-y-3">
+                    <div>
+                        <div class="text-sm text-gray-400 mb-1">Line 0 (Name)</div>
+                        <div id="tle-name" class="bg-gray-800 rounded-lg p-3 font-mono text-sm text-green-400 border border-gray-700">
+                            Loading...
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400 mb-1">Line 1</div>
+                        <div id="tle-line1" class="bg-gray-800 rounded-lg p-3 font-mono text-sm text-blue-400 border border-gray-700 break-all">
+                            Loading...
+                        </div>
+                    </div>
+                    <div>
+                        <div class="text-sm text-gray-400 mb-1">Line 2</div>
+                        <div id="tle-line2" class="bg-gray-800 rounded-lg p-3 font-mono text-sm text-purple-400 border border-gray-700 break-all">
+                            Loading...
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-4 flex space-x-2">
+                    <button onclick="copyTLE()" 
+                            class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-copy mr-2"></i>Copy TLE
+                    </button>
+                    <button onclick="downloadTLE()" 
+                            class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-download mr-2"></i>Download
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="space-y-6">
+            <!-- Live Position (Placeholder) -->
+            <div class="glass-effect rounded-xl p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center">
+                    <i class="fas fa-map-marker-alt text-red-400 mr-3"></i>
+                    Current Position
+                </h3>
+                <div class="space-y-3">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Latitude</span>
+                        <span id="latitude" class="font-mono text-blue-400">--°</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Longitude</span>
+                        <span id="longitude" class="font-mono text-blue-400">--°</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Altitude</span>
+                        <span id="altitude" class="font-mono text-green-400">-- km</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Velocity</span>
+                        <span id="velocity" class="font-mono text-yellow-400">-- km/s</span>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 bg-yellow-500 bg-opacity-20 border border-yellow-500 rounded-lg">
+                    <p class="text-yellow-300 text-sm">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Live position calculation requires additional orbital mechanics library
+                    </p>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="glass-effect rounded-xl p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center">
+                    <i class="fas fa-tools text-orange-400 mr-3"></i>
+                    Quick Actions
+                </h3>
+                <div class="space-y-2">
+                    <button onclick="showUpdateModal()" 
+                            class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-edit mr-2"></i>Update TLE Data
+                    </button>
+                    <button onclick="showPredictionModal()" 
+                            class="w-full bg-purple-500 hover:bg-purple-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-chart-line mr-2"></i>Predict Passes
+                    </button>
+                    <button onclick="showShareModal()" 
+                            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-sm">
+                        <i class="fas fa-share mr-2"></i>Share Satellite
+                    </button>
+                </div>
+            </div>
+
+            <!-- Related Satellites -->
+            <div class="glass-effect rounded-xl p-6">
+                <h3 class="text-lg font-bold mb-4 flex items-center">
+                    <i class="fas fa-satellite-dish text-green-400 mr-3"></i>
+                    Popular Satellites
+                </h3>
+                <div class="space-y-2">
+                    {% for satellite in popular_satellites[:3] %}
+                    <div class="flex items-center justify-between p-2 bg-white bg-opacity-5 rounded-lg hover:bg-opacity-10 transition-all cursor-pointer"
+                         onclick="window.location.href='{{ url_for('satellite.satellite_detail', satellite_id=satellite.satellite_id) }}'">
+                        <div>
+                            <div class="text-sm font-medium">{{ satellite.name }}</div>
+                            <div class="text-xs text-gray-400">{{ satellite.category }}</div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400 text-xs"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Update TLE Modal -->
+<div id="update-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="glass-effect rounded-xl p-6 max-w-2xl w-full mx-4">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-xl font-bold">Update TLE Data</h3>
+            <button onclick="hideUpdateModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form id="update-form" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Line 1</label>
+                <textarea id="update-line1" rows="2" 
+                          class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          placeholder="1 25544U 98067A   22001.74462497  .00001435  00000-0  34779-4 0  9992"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-2">Line 2</label>
+                <textarea id="update-line2" rows="2" 
+                          class="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          placeholder="2 25544  51.6464  24.2704 0004064  69.5467 290.6355 15.48835264296862"></textarea>
+            </div>
+            <div class="flex space-x-3">
+                <button type="submit" 
+                        class="flex-1 bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    <i class="fas fa-save mr-2"></i>Update TLE
+                </button>
+                <button type="button" onclick="hideUpdateModal()" 
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                    Cancel
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+
+<script>
+let satelliteData = null;
+let isTracking = false;
+
+// Load satellite data on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadSatelliteData();
+});
+
+async function loadSatelliteData() {
+    try {
+        const response = await fetch(`/satellites/api/satellite/{{ satellite_id }}`);
+        
+        if (!response.ok) {
+            if (response.status === 404) {
+                showErrorState();
+                return;
+            }
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        satelliteData = await response.json();
+        displaySatelliteData(satelliteData);
+        
+    } catch (error) {
+        console.error('Error loading satellite data:', error);
+        showErrorState();
+    }
+}
+
+function displaySatelliteData(data) {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('satellite-details').classList.remove('hidden');
+    
+    // Update basic info
+    document.getElementById('satellite-name').textContent = data.name || 'Unknown Satellite';
+    document.getElementById('satellite-norad').textContent = data.norad_cat_id;
+    
+    // Update TLE data
+    document.getElementById('tle-name').textContent = data.name || 'Unknown Satellite';
+    document.getElementById('tle-line1').textContent = data.line1 || 'No data available';
+    document.getElementById('tle-line2').textContent = data.line2 || 'No data available';
+    
+    // Update orbital information
+    if (data.inclination !== undefined) {
+        document.getElementById('inclination').textContent = data.inclination.toFixed(2) + '°';
+    }
+    
+    if (data.orbital_period !== undefined) {
+        document.getElementById('orbital-period').textContent = data.orbital_period.toFixed(1) + ' min';
+    }
+    
+    if (data.epoch) {
+        document.getElementById('epoch').textContent = data.epoch;
+    }
+    
+    // Populate update form
+    document.getElementById('update-line1').value = data.line1 || '';
+    document.getElementById('update-line2').value = data.line2 || '';
+    
+    // Update page title
+    document.title = `${data.name} - Satellite Details - SatTracker`;
+}
+
+function showErrorState() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('error-state').classList.remove('hidden');
+}
+
+function refreshData() {
+    document.getElementById('satellite-details').classList.add('hidden');
+    document.getElementById('loading-state').classList.remove('hidden');
+    loadSatelliteData();
+}
+
+function toggleTracking() {
+    const button = document.getElementById('track-button');
+    isTracking = !isTracking;
+    
+    if (isTracking) {
+        button.innerHTML = '<i class="fas fa-stop mr-2"></i>Stop';
+        button.className = button.className.replace('bg-green-500 hover:bg-green-600', 'bg-red-500 hover:bg-red-600');
+        // In a real app, start tracking logic here
+        simulateTracking();
+    } else {
+        button.innerHTML = '<i class="fas fa-play mr-2"></i>Track';
+        button.className = button.className.replace('bg-red-500 hover:bg-red-600', 'bg-green-500 hover:bg-green-600');
+    }
+}
+
+function simulateTracking() {
+    if (!isTracking) return;
+    
+    // Simulate position updates
+    const lat = (Math.random() - 0.5) * 180;
+    const lng = (Math.random() - 0.5) * 360;
+    const alt = 400 + Math.random() * 200;
+    const vel = 7.5 + Math.random() * 0.5;
+    
+    document.getElementById('latitude').textContent = lat.toFixed(4) + '°';
+    document.getElementById('longitude').textContent = lng.toFixed(4) + '°';
+    document.getElementById('altitude').textContent = alt.toFixed(1) + ' km';
+    document.getElementById('velocity').textContent = vel.toFixed(2) + ' km/s';
+    
+    setTimeout(simulateTracking, 2000);
+}
+
+function copyTLE() {
+    const name = satelliteData?.name || 'Unknown Satellite';
+    const line1 = satelliteData?.line1 || '';
+    const line2 = satelliteData?.line2 || '';
+    
+    const tleText = `${name}\n${line1}\n${line2}`;
+    
+    navigator.clipboard.writeText(tleText).then(() => {
+        alert('TLE data copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy TLE data');
+    });
+}
+
+function downloadTLE() {
+    if (!satelliteData) return;
+    
+    const name = satelliteData.name || 'Unknown Satellite';
+    const line1 = satelliteData.line1 || '';
+    const line2 = satelliteData.line2 || '';
+    
+    const tleText = `${name}\n${line1}\n${line2}`;
+    const blob = new Blob([tleText], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name.replace(/[^a-zA-Z0-9]/g, '_')}_TLE.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+function showUpdateModal() {
+    document.getElementById('update-modal').classList.remove('hidden');
+}
+
+function hideUpdateModal() {
+    document.getElementById('update-modal').classList.add('hidden');
+}
+
+function showPredictionModal() {
+    alert('Prediction feature coming soon!');
+}
+
+function showShareModal() {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+        alert('Satellite URL copied to clipboard!');
+    }).catch(() => {
+        alert('Failed to copy URL');
+    });
+}
+
+// Handle update form submission
+document.getElementById('update-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const line1 = document.getElementById('update-line1').value.trim();
+    const line2 = document.getElementById('update-line2').value.trim();
+    
+    if (!line1 || !line2) {
+        alert('Both TLE lines are required');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/satellites/api/update/{{ satellite_id }}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ line1, line2 })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const result = await response.json();
+        alert('TLE data updated successfully!');
+        hideUpdateModal();
+        refreshData();
+        
+    } catch (error) {
+        console.error('Error updating TLE:', error);
+        alert('Failed to update TLE data');
+    }
+});
+</script>
+{% endblock %}

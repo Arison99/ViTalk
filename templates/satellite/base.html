@@ -1,0 +1,230 @@
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Satellite Tracker{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .space-bg {
+            background: linear-gradient(45deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+        }
+        
+        .satellite-orbit {
+            animation: orbit 20s linear infinite;
+        }
+        
+        @keyframes orbit {
+            from { transform: rotate(0deg) translateX(30px) rotate(0deg); }
+            to { transform: rotate(360deg) translateX(30px) rotate(-360deg); }
+        }
+        
+        .glass-effect {
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .loading-pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 500ms ease-in;
+        }
+        
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+        
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+    </style>
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        'space-dark': '#0c0c0c',
+                        'space-blue': '#1a1a2e',
+                        'space-purple': '#16213e',
+                        'satellite-gold': '#ffd700',
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen space-bg">
+    <!-- Navigation -->
+    <nav class="glass-effect sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center">
+                    <a href="{{ url_for('satellite.index') }}" class="flex items-center space-x-2">
+                        <div class="relative">
+                            <i class="fas fa-satellite text-satellite-gold text-2xl satellite-orbit"></i>
+                        </div>
+                        <span class="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                            SatTracker
+                        </span>
+                    </a>
+                </div>
+                
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="{{ url_for('satellite.index') }}" 
+                           class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-10 transition-all duration-200 {% if request.endpoint == 'satellite.index' %}bg-white bg-opacity-20{% endif %}">
+                            <i class="fas fa-home mr-2"></i>Dashboard
+                        </a>
+                        <a href="{{ url_for('satellite.search_page') }}" 
+                           class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-10 transition-all duration-200 {% if request.endpoint == 'satellite.search_page' %}bg-white bg-opacity-20{% endif %}">
+                            <i class="fas fa-search mr-2"></i>Search
+                        </a>
+                        <a href="{{ url_for('satellite.popular_satellites') }}" 
+                           class="px-3 py-2 rounded-md text-sm font-medium hover:bg-white hover:bg-opacity-10 transition-all duration-200 {% if request.endpoint == 'satellite.popular_satellites' %}bg-white bg-opacity-20{% endif %}">
+                            <i class="fas fa-star mr-2"></i>Popular
+                        </a>
+                    </div>
+                </div>
+                
+                <!-- Mobile menu button -->
+                <div class="md:hidden">
+                    <button type="button" class="p-2 rounded-md hover:bg-white hover:bg-opacity-10" onclick="toggleMobileMenu()">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mobile menu -->
+        <div class="md:hidden hidden" id="mobile-menu">
+            <div class="px-2 pt-2 pb-3 space-y-1 border-t border-gray-700">
+                <a href="{{ url_for('satellite.index') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-white hover:bg-opacity-10">
+                    <i class="fas fa-home mr-2"></i>Dashboard
+                </a>
+                <a href="{{ url_for('satellite.search_page') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-white hover:bg-opacity-10">
+                    <i class="fas fa-search mr-2"></i>Search
+                </a>
+                <a href="{{ url_for('satellite.popular_satellites') }}" class="block px-3 py-2 rounded-md text-base font-medium hover:bg-white hover:bg-opacity-10">
+                    <i class="fas fa-star mr-2"></i>Popular
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="mb-6 space-y-2">
+                    {% for message in messages %}
+                        <div class="bg-blue-500 bg-opacity-20 border border-blue-500 text-blue-200 px-4 py-3 rounded-lg" role="alert">
+                            <span class="block sm:inline">{{ message }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-16 border-t border-gray-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="text-center">
+                <p class="text-gray-400 text-sm">
+                    <i class="fas fa-satellite mr-2"></i>
+                    Powered by TLE API - Real-time satellite tracking data
+                </p>
+                <p class="text-gray-500 text-xs mt-2">
+                    Data provided by <a href="https://tle.ivanstanojevic.me" class="text-blue-400 hover:text-blue-300" target="_blank">TLE API</a>
+                </p>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading overlay -->
+    <div id="loading-overlay" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass-effect rounded-lg p-6 text-center">
+            <div class="loading-pulse">
+                <i class="fas fa-satellite text-4xl text-satellite-gold mb-4"></i>
+            </div>
+            <p class="text-lg font-medium">Loading satellite data...</p>
+        </div>
+    </div>
+{% include 'footer.html' %}
+    <script>
+        // Mobile menu toggle
+        function toggleMobileMenu() {
+            const menu = document.getElementById('mobile-menu');
+            menu.classList.toggle('hidden');
+        }
+
+        // Show/hide loading overlay
+        function showLoading() {
+            document.getElementById('loading-overlay').classList.remove('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        // HTMX event listeners
+        document.addEventListener('htmx:beforeRequest', function(event) {
+            showLoading();
+        });
+
+        document.addEventListener('htmx:afterRequest', function(event) {
+            hideLoading();
+        });
+
+        document.addEventListener('htmx:responseError', function(event) {
+            hideLoading();
+            alert('Error loading data. Please try again.');
+        });
+
+        // Auto-hide flash messages
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('[role="alert"]');
+            alerts.forEach(function(alert) {
+                alert.style.transition = 'opacity 0.5s ease-out';
+                alert.style.opacity = '0';
+                setTimeout(function() {
+                    alert.remove();
+                }, 500);
+            });
+        }, 5000);
+    </script>
+</body>
+</html>

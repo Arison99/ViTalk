@@ -1,0 +1,493 @@
+{% extends "satellite/base.html" %}
+{% block content %}
+    <style>
+        body {
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+        }
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .satellite-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        .satellite-card:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+        .loading-spinner {
+            border: 3px solid rgba(255, 255, 255, 0.1);
+            border-top: 3px solid #3b82f6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .error-message {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #fca5a5;
+        }
+    </style>
+    
+<body class="text-white">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Search Header -->
+        <div class="glass-effect rounded-xl p-6 mb-8">
+            <div class="text-center mb-6">
+                <div class="flex justify-center mb-4">
+                    <div class="w-16 h-16 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center">
+                        <i class="fas fa-search text-2xl text-white"></i>
+                    </div>
+                </div>
+                <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                    Search Satellites
+                </h1>
+                <p class="text-gray-400 max-w-2xl mx-auto">
+                    Find satellites by name, NORAD catalog ID, international designator, or launch information
+                </p>
+            </div>
+            
+            <!-- Search Form -->
+            <div class="max-w-2xl mx-auto">
+                <form id="search-form" class="space-y-4">
+                    <div class="relative">
+                        <input type="text" 
+                               id="search-input"
+                               name="query"
+                               placeholder="Enter satellite name, NORAD ID, or search term..."
+                               class="w-full px-4 py-3 pl-12 bg-white bg-opacity-10 border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all text-lg">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                    
+                    <div class="flex flex-wrap gap-3 justify-center">
+                        <button type="submit" 
+                                class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-6 rounded-lg transition-all duration-200 transform hover:scale-105">
+                            <i class="fas fa-search mr-2"></i>Search
+                        </button>
+                        <button type="button" onclick="clearSearch()" 
+                                class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-times mr-2"></i>Clear
+                        </button>
+                        <button type="button" onclick="showAdvancedSearch()" 
+                                class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-cog mr-2"></i>Advanced
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Quick Search Examples -->
+        <div class="mb-8">
+            <h2 class="text-xl font-bold mb-4 text-center">Popular Searches</h2>
+            <div class="flex flex-wrap justify-center gap-2">
+                <button onclick="quickSearch('ISS')" 
+                        class="bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all">
+                    International Space Station
+                </button>
+                <button onclick="quickSearch('Hubble')" 
+                        class="bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all">
+                    Hubble Space Telescope
+                </button>
+                <button onclick="quickSearch('NOAA')" 
+                        class="bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all">
+                    NOAA Weather Satellites
+                </button>
+                <button onclick="quickSearch('GPS')" 
+                        class="bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all">
+                    GPS Satellites
+                </button>
+                <button onclick="quickSearch('Starlink')" 
+                        class="bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all">
+                    Starlink Constellation
+                </button>
+            </div>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message" class="hidden error-message rounded-xl p-4 mb-6">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-triangle text-red-400 mr-3"></i>
+                <div>
+                    <h3 class="font-bold">Search Error</h3>
+                    <p id="error-text" class="text-sm"></p>
+                </div>
+                <button onclick="hideError()" class="ml-auto text-red-400 hover:text-red-300">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loading-state" class="hidden text-center py-12">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-400">Searching satellites...</p>
+        </div>
+
+        <!-- Search Results -->
+        <div id="search-results" class="hidden">
+            <!-- Results Header -->
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-2xl font-bold flex items-center">
+                    <i class="fas fa-satellite text-blue-400 mr-3"></i>
+                    Search Results
+                </h2>
+                <div id="results-count" class="text-gray-400"></div>
+            </div>
+            
+            <!-- Results Grid -->
+            <div id="results-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Results will be populated here -->
+            </div>
+            
+            <!-- Load More Button -->
+            <div class="text-center mt-8">
+                <button id="load-more-btn" class="hidden bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                    <i class="fas fa-plus mr-2"></i>Load More Results
+                </button>
+            </div>
+        </div>
+
+        <!-- No Results -->
+        <div id="no-results" class="hidden text-center py-12">
+            <div class="mb-4">
+                <i class="fas fa-search text-6xl text-gray-600"></i>
+            </div>
+            <h3 class="text-2xl font-bold mb-2 text-gray-400">No Satellites Found</h3>
+            <p class="text-gray-500 mb-6">Try a different search term or check your spelling</p>
+            <div class="space-x-4">
+                <button onclick="clearSearch()" 
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                    <i class="fas fa-search mr-2"></i>New Search
+                </button>
+                <a href="{{ url_for('satellite.popular_satellites') }}" 
+                   class="inline-block bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+                    <i class="fas fa-star mr-2"></i>Browse Popular
+                </a>
+            </div>
+        </div>
+
+        <!-- Advanced Search Modal -->
+        <div id="advanced-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+            <div class="glass-effect rounded-xl p-6 max-w-md w-full mx-4">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-xl font-bold">Advanced Search</h3>
+                    <button onclick="hideAdvancedSearch()" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="space-y-4">
+                    <div class="bg-yellow-500 bg-opacity-20 border border-yellow-500 rounded-lg p-4">
+                        <h4 class="font-bold text-yellow-300 mb-2">Search Tips:</h4>
+                        <ul class="text-yellow-200 text-sm space-y-1">
+                            <li>• Use satellite names (e.g., "ISS", "Hubble")</li>
+                            <li>• Try NORAD catalog IDs (e.g., "25544")</li>
+                            <li>• Search by mission type (e.g., "weather", "communication")</li>
+                            <li>• Use partial names for broader results</li>
+                        </ul>
+                    </div>
+                    <div class="bg-blue-500 bg-opacity-20 border border-blue-500 rounded-lg p-4">
+                        <h4 class="font-bold text-blue-300 mb-2">Search Examples:</h4>
+                        <ul class="text-blue-200 text-sm space-y-1">
+                            <li>• <code class="bg-black bg-opacity-30 px-1 rounded">ISS</code> - International Space Station</li>
+                            <li>• <code class="bg-black bg-opacity-30 px-1 rounded">25544</code> - Search by NORAD ID</li>
+                            <li>• <code class="bg-black bg-opacity-30 px-1 rounded">1998-067A</code> - International designator</li>
+                            <li>• <code class="bg-black bg-opacity-30 px-1 rounded">Starlink</code> - All Starlink satellites</li>
+                        </ul>
+                    </div>
+                    <a href="{{ url_for('satellite.api_advanced_search') }}" 
+                       class="block w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 rounded-lg transition-all text-center">
+                        <i class="fas fa-cog mr-2"></i>Advanced Search Page
+                    </a>
+                    <button onclick="hideAdvancedSearch()" 
+                            class="w-full bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 rounded-lg transition-all">
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentResults = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        let currentQuery = '';
+        const pageSize = 12;
+
+        // Search functionality
+        document.getElementById('search-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const query = document.getElementById('search-input').value.trim();
+            if (query) {
+                currentQuery = query;
+                currentPage = 1;
+                performSearch(query, currentPage);
+            }
+        });
+
+        async function performSearch(query, page = 1) {
+            showLoading();
+            hideError();
+            
+            try {
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        query: query,
+                        page: page,
+                        'page-size': pageSize
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Search failed');
+                }
+
+                if (page === 1) {
+                    currentResults = data.satellites || [];
+                } else {
+                    currentResults = [...currentResults, ...(data.satellites || [])];
+                }
+                
+                currentPage = data.pagination?.current_page || 1;
+                totalPages = data.pagination?.total_pages || 1;
+                
+                displayResults(currentResults, query, data.pagination);
+                
+            } catch (error) {
+                console.error('Search error:', error);
+                showError('Failed to search satellites: ' + error.message);
+                hideLoading();
+            }
+        }
+
+        function displayResults(results, query, pagination) {
+            hideLoading();
+            
+            const resultsContainer = document.getElementById('search-results');
+            const noResultsContainer = document.getElementById('no-results');
+            const resultsGrid = document.getElementById('results-grid');
+            const resultsCount = document.getElementById('results-count');
+            const loadMoreBtn = document.getElementById('load-more-btn');
+
+            if (!results || results.length === 0) {
+                resultsContainer.classList.add('hidden');
+                noResultsContainer.classList.remove('hidden');
+                return;
+            }
+
+            noResultsContainer.classList.add('hidden');
+            resultsContainer.classList.remove('hidden');
+            
+            const totalCount = pagination?.total_count || results.length;
+            resultsCount.textContent = `${totalCount} satellite${totalCount !== 1 ? 's' : ''} found for "${query}"`;
+            
+            if (currentPage === 1) {
+                resultsGrid.innerHTML = '';
+            }
+            
+            results.slice((currentPage - 1) * pageSize).forEach(satellite => {
+                const card = createSatelliteCard(satellite);
+                resultsGrid.appendChild(card);
+            });
+
+            // Show/hide load more button
+            if (currentPage < totalPages) {
+                loadMoreBtn.classList.remove('hidden');
+            } else {
+                loadMoreBtn.classList.add('hidden');
+            }
+        }
+
+        function createSatelliteCard(satellite) {
+            const card = document.createElement('div');
+            card.className = 'satellite-card rounded-xl p-6 cursor-pointer';
+            card.onclick = () => viewSatelliteDetails(satellite);
+            
+            // Extract data from satellite object
+            const name = satellite.name || 'Unknown Satellite';
+            const noradId = satellite.norad_catalog_id || satellite.noradId || 'N/A';
+            const intlDesignator = satellite.international_designator || satellite.intlDesignator || 'N/A';
+            const launchDate = satellite.launch_date || satellite.launchDate || 'Unknown';
+            const category = satellite.object_type || satellite.category || 'Unknown';
+            const country = satellite.country_code || satellite.country || 'Unknown';
+            
+            // Determine status (you might need to add logic based on your data structure)
+            const status = satellite.status || 'Unknown';
+            const statusColor = status === 'Active' ? 'text-green-400' : 'text-red-400';
+            
+            const categoryIcon = getCategoryIcon(category);
+            
+            card.innerHTML = `
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center mr-3">
+                            <i class="${categoryIcon} text-white"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-bold text-lg truncate">${name}</h3>
+                            <p class="text-gray-400 text-sm">NORAD: ${noradId}</p>
+                        </div>
+                    </div>
+                    <span class="${statusColor} text-xs font-medium px-2 py-1 rounded-full bg-opacity-20 ${status === 'Active' ? 'bg-green-500' : 'bg-red-500'}">
+                        ${status}
+                    </span>
+                </div>
+                
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Category:</span>
+                        <span class="text-white">${category}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Launch:</span>
+                        <span class="text-white">${launchDate}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Country:</span>
+                        <span class="text-white">${country}</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-400">Int'l Designator:</span>
+                        <span class="text-white">${intlDesignator}</span>
+                    </div>
+                </div>
+                
+                ${satellite.orbital_period ? `
+                <div class="mt-4 pt-4 border-t border-gray-600">
+                    <div class="flex justify-between text-sm">
+                        <span class="text-gray-400">Orbital Period:</span>
+                        <span class="text-blue-400">${satellite.orbital_period.toFixed(2)} min</span>
+                    </div>
+                </div>
+                ` : ''}
+                
+                <div class="mt-4 pt-4 border-t border-gray-600">
+                    <button class="text-blue-400 hover:text-blue-300 text-sm font-medium">
+                        <i class="fas fa-eye mr-2"></i>View Details
+                    </button>
+                </div>
+            `;
+            
+            return card;
+        }
+
+        function getCategoryIcon(category) {
+            const categoryLower = category.toLowerCase();
+            const icons = {
+                'space station': 'fas fa-space-shuttle',
+                'telescope': 'fas fa-telescope',
+                'communications': 'fas fa-satellite-dish',
+                'communication': 'fas fa-satellite-dish',
+                'weather': 'fas fa-cloud-sun',
+                'navigation': 'fas fa-compass',
+                'military': 'fas fa-shield-alt',
+                'scientific': 'fas fa-flask',
+                'debris': 'fas fa-times-circle'
+            };
+            
+            for (const [key, icon] of Object.entries(icons)) {
+                if (categoryLower.includes(key)) {
+                    return icon;
+                }
+            }
+            
+            return 'fas fa-satellite';
+        }
+
+        function viewSatelliteDetails(satellite) {
+            const noradId = satellite.norad_catalog_id || satellite.noradId;
+            if (noradId) {
+                window.location.href = `{{ url_for('satellite.index', satellite_id='') }}${noradId}`;
+            }
+        }
+
+        // Quick search functions
+        function quickSearch(query) {
+            document.getElementById('search-input').value = query;
+            currentQuery = query;
+            currentPage = 1;
+            performSearch(query, currentPage);
+        }
+
+        function clearSearch() {
+            document.getElementById('search-input').value = '';
+            document.getElementById('search-results').classList.add('hidden');
+            document.getElementById('no-results').classList.add('hidden');
+            hideError();
+            currentResults = [];
+            currentPage = 1;
+            currentQuery = '';
+        }
+
+        // Advanced search modal
+        function showAdvancedSearch() {
+            document.getElementById('advanced-modal').classList.remove('hidden');
+        }
+
+        function hideAdvancedSearch() {
+            document.getElementById('advanced-modal').classList.add('hidden');
+        }
+
+        // Loading state
+        function showLoading() {
+            document.getElementById('loading-state').classList.remove('hidden');
+            document.getElementById('search-results').classList.add('hidden');
+            document.getElementById('no-results').classList.add('hidden');
+        }
+
+        function hideLoading() {
+            document.getElementById('loading-state').classList.add('hidden');
+        }
+
+        // Error handling
+        function showError(message) {
+            document.getElementById('error-text').textContent = message;
+            document.getElementById('error-message').classList.remove('hidden');
+        }
+
+        function hideError() {
+            document.getElementById('error-message').classList.add('hidden');
+        }
+
+        // Load more button
+        document.getElementById('load-more-btn').addEventListener('click', function() {
+            if (currentPage < totalPages) {
+                currentPage++;
+                performSearch(currentQuery, currentPage);
+            }
+        });
+
+        // Close modal when clicking outside
+        document.getElementById('advanced-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                hideAdvancedSearch();
+            }
+        });
+
+        // Enter key support for search
+        document.getElementById('search-input').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('search-form').dispatchEvent(new Event('submit'));
+            }
+        });
+    </script>
+</body>
+{% endblock %}

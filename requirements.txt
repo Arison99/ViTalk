@@ -1,0 +1,10 @@
+Flask
+requests
+edge-tts
+openai-whisper
+torch  # Required by Whisper
+werkzeug  # Usually comes with Flask
+PyAudio
+pyttsx3
+SpeechRecognition 
+fask_cors

@@ -1,0 +1,185 @@
+{% extends "radio/base.html" %}
+
+{% block title %}My Favorite Radio Stations{% endblock %}
+
+{% block content %}
+<div class="mb-8">
+    <h1 class="text-3xl font-bold text-gray-900 mb-4">
+        <i class="fas fa-heart text-red-500 mr-2"></i>
+        My Favorite Stations
+    </h1>
+    <p class="text-gray-600">Keep track of your favorite radio stations for quick access.</p>
+</div>
+
+<!-- Favorites List -->
+{% if stations %}
+<div class="grid gap-4">
+    {% for station in stations %}
+    <div class="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow p-6">
+        <div class="flex items-center justify-between">
+            <div class="flex-1 min-w-0">
+                <div class="flex items-center mb-2">
+                    <h3 class="text-lg font-semibold text-gray-900 truncate mr-3">
+                        {{ station.name }}
+                    </h3>
+                    {% if station.country %}
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        <i class="fas fa-flag mr-1"></i>{{ station.country }}
+                    </span>
+                    {% endif %}
+                </div>
+                
+                <div class="flex flex-wrap items-center text-sm text-gray-600 mb-3">
+                    {% if station.codec %}
+                    <span class="mr-4">
+                        <i class="fas fa-music mr-1"></i>{{ station.codec|upper }}
+                    </span>
+                    {% endif %}
+                    {% if station.bitrate %}
+                    <span class="mr-4">
+                        <i class="fas fa-signal mr-1"></i>{{ station.bitrate }} kbps
+                    </span>
+                    {% endif %}
+                </div>
+                
+                {% if station.tags %}
+                <div class="flex flex-wrap gap-1">
+                    {% for tag in station.tags.split(',')[:3] %}
+                    {% if tag.strip() %}
+                    <span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        {{ tag.strip() }}
+                    </span>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="flex items-center space-x-3 ml-4">
+                {% if station.favicon %}
+                <img src="{{ station.favicon }}" alt="Station Logo" 
+                     class="w-12 h-12 rounded-full object-cover bg-gray-100"
+                     onerror="this.style.display='none'">
+                {% endif %}
+                
+                <button onclick="playStation('{{ station.stationuuid }}', '{{ station.name|e }}', '{{ station.country|e }}')" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md transition-colors">
+                    <i class="fas fa-play mr-2"></i>Play
+                </button>
+                
+                <button onclick="removeFavorite('{{ station.stationuuid }}')" 
+                        class="text-red-600 hover:text-red-800 p-2" title="Remove from favorites">
+                    <i class="fas fa-heart-broken"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<!-- Empty State -->
+<div class="text-center py-16">
+    <div class="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+        <i class="fas fa-heart text-gray-400 text-4xl"></i>
+    </div>
+    <h3 class="text-xl font-semibold text-gray-900 mb-2">No favorites yet</h3>
+    <p class="text-gray-600 mb-8 max-w-md mx-auto">
+        Start exploring radio stations and add your favorites by clicking the heart icon. 
+        They'll appear here for quick access.
+    </p>
+    
+    <!-- Quick Action Buttons -->
+    <div class="space-x-4">
+        <a href="{{ url_for('radio.search') }}" 
+           class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors">
+            <i class="fas fa-search mr-2"></i>Search Stations
+        </a>
+        <a href="{{ url_for('radio.index') }}" 
+           class="bg-gray-600 text-white px-6 py-3 rounded-lg hover:bg-gray-700 transition-colors">
+            <i class="fas fa-home mr-2"></i>Browse Categories
+        </a>
+    </div>
+</div>
+
+<!-- Popular Suggestions -->
+<div class="bg-white rounded-lg shadow-md p-8 mt-8">
+    <h2 class="text-xl font-semibold text-gray-900 mb-6 text-center">Discover Popular Stations</h2>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="{{ url_for('radio.search', tag='jazz') }}" 
+           class="group bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6 text-center hover:from-blue-600 hover:to-blue-700 transition-all">
+            <i class="fas fa-saxophone text-3xl mb-3 group-hover:scale-110 transition-transform"></i>
+            <div class="font-semibold mb-1">Jazz Stations</div>
+            <div class="text-sm text-blue-100">Smooth & Classic</div>
+        </a>
+        
+        <a href="{{ url_for('radio.search', tag='rock') }}" 
+           class="group bg-gradient-to-r from-red-500 to-red-600 text-white rounded-lg p-6 text-center hover:from-red-600 hover:to-red-700 transition-all">
+            <i class="fas fa-guitar text-3xl mb-3 group-hover:scale-110 transition-transform"></i>
+            <div class="font-semibold mb-1">Rock Stations</div>
+            <div class="text-sm text-red-100">Classic & Modern</div>
+        </a>
+        
+        <a href="{{ url_for('radio.search', tag='news') }}" 
+           class="group bg-gradient-to-r from-gray-500 to-gray-600 text-white rounded-lg p-6 text-center hover:from-gray-600 hover:to-gray-700 transition-all">
+            <i class="fas fa-newspaper text-3xl mb-3 group-hover:scale-110 transition-transform"></i>
+            <div class="font-semibold mb-1">News Stations</div>
+            <div class="text-sm text-gray-100">Stay Informed</div>
+        </a>
+    </div>
+</div>
+{% endif %}
+
+<!-- Favorites Management Info -->
+<div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
+    <div class="flex items-start">
+        <i class="fas fa-info-circle text-blue-600 mr-3 mt-0.5"></i>
+        <div>
+            <h3 class="font-semibold text-blue-900 mb-2">About Favorites</h3>
+            <p class="text-blue-800 text-sm leading-relaxed">
+                Your favorite stations are stored locally in your browser. To keep them across devices, 
+                consider bookmarking this page or creating an account (feature coming soon).
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block scripts %}
+<script>
+// Favorites management (using localStorage for demo - would integrate with backend in production)
+function removeFavorite(stationUuid) {
+    if (confirm('Remove this station from your favorites?')) {
+        // This would typically make an API call to remove from user's favorites
+        // For now, just reload the page to simulate removal
+        location.reload();
+    }
+}
+
+// Add some visual feedback for empty state
+document.addEventListener('DOMContentLoaded', function() {
+    const emptyState = document.querySelector('.text-center.py-16');
+    if (emptyState) {
+        // Add subtle animation to the heart icon
+        const heartIcon = emptyState.querySelector('.fa-heart');
+        if (heartIcon) {
+            setInterval(() => {
+                heartIcon.classList.add('animate-pulse');
+                setTimeout(() => heartIcon.classList.remove('animate-pulse'), 1000);
+            }, 3000);
+        }
+    }
+});
+</script>
+
+<style>
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+.animate-pulse {
+    animation: pulse 1s ease-in-out;
+}
+</style>
+{% endblock %}

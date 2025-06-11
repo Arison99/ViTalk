@@ -1,0 +1,219 @@
+{% extends "satellite/base.html" %}
+
+{% block title %}Satellite Dashboard - SatTracker{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 opacity-20 rounded-3xl"></div>
+    <div class="relative glass-effect rounded-3xl p-8 mb-8">
+        <div class="text-center">
+            <div class="flex justify-center mb-6">
+                <div class="relative">
+                    <div class="w-20 h-20 bg-gradient-to-br from-blue-400 to-purple-600 rounded-full flex items-center justify-center">
+                        <i class="fas fa-satellite text-3xl text-white satellite-orbit"></i>
+                    </div>
+                    <div class="absolute -top-2 -right-2 w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+            </div>
+            <h1 class="text-4xl md:text-6xl font-bold mb-4 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                Satellite Tracker
+            </h1>
+            <p class="text-xl text-gray-300 max-w-2xl mx-auto">
+                Track satellites in real-time using Two-Line Element (TLE) data. Search, monitor, and analyze orbital information for thousands of satellites.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions Grid -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+    <!-- Quick Search -->
+    <div class="glass-effect rounded-xl p-6 hover:bg-opacity-20 transition-all duration-300 group">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-blue-500 bg-opacity-20 rounded-lg flex items-center justify-center group-hover:bg-opacity-30 transition-all">
+                <i class="fas fa-search text-blue-400 text-xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold ml-4">Quick Search</h3>
+        </div>
+        <p class="text-gray-400 mb-4">Find satellites by name, NORAD ID, or designation</p>
+        <div class="space-y-3">
+            <input type="text" 
+                   id="quick-search-input"
+                   placeholder="Enter satellite name or NORAD ID..."
+                   class="w-full px-4 py-2 bg-white bg-opacity-10 border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+            <button onclick="performQuickSearch()" 
+                    class="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105">
+                <i class="fas fa-search mr-2"></i>Search Now
+            </button>
+        </div>
+    </div>
+
+    <!-- Popular Satellites -->
+    <div class="glass-effect rounded-xl p-6 hover:bg-opacity-20 transition-all duration-300 group">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-yellow-500 bg-opacity-20 rounded-lg flex items-center justify-center group-hover:bg-opacity-30 transition-all">
+                <i class="fas fa-star text-yellow-400 text-xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold ml-4">Popular Satellites</h3>
+        </div>
+        <p class="text-gray-400 mb-4">Quick access to commonly tracked satellites</p>
+        <div class="space-y-2" id="popular-satellites-list">
+            {% for satellite in popular_satellites[:3] %}
+            <div class="flex items-center justify-between p-2 bg-white bg-opacity-5 rounded-lg hover:bg-opacity-10 transition-all cursor-pointer"
+                 onclick="window.location.href='{{ url_for('satellite.satellite_detail', satellite_id=satellite.satellite_id) }}'">
+                <div>
+                    <span class="text-sm font-medium">{{ satellite.name }}</span>
+                    <span class="text-xs text-gray-400 block">ID: {{ satellite.satellite_id }}</span>
+                </div>
+                <i class="fas fa-chevron-right text-gray-400"></i>
+            </div>
+            {% endfor %}
+        </div>
+        <a href="{{ url_for('satellite.popular_satellites') }}" 
+           class="inline-flex items-center text-blue-400 hover:text-blue-300 text-sm mt-3 transition-colors">
+            View all popular satellites <i class="fas fa-arrow-right ml-1"></i>
+        </a>
+    </div>
+
+    <!-- Live Tracking -->
+    <div class="glass-effect rounded-xl p-6 hover:bg-opacity-20 transition-all duration-300 group">
+        <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-green-500 bg-opacity-20 rounded-lg flex items-center justify-center group-hover:bg-opacity-30 transition-all">
+                <i class="fas fa-globe text-green-400 text-xl"></i>
+            </div>
+            <h3 class="text-xl font-semibold ml-4">Live Tracking</h3>
+        </div>
+        <p class="text-gray-400 mb-4">Real-time satellite position and orbital data</p>
+        <div class="space-y-2">
+            <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-400">ISS Position</span>
+                <span class="text-xs bg-green-500 bg-opacity-20 text-green-400 px-2 py-1 rounded-full">LIVE</span>
+            </div>
+            <div class="h-2 bg-gray-700 rounded-full overflow-hidden">
+                <div class="h-full bg-gradient-to-r from-green-400 to-blue-400 rounded-full animate-pulse" style="width: 75%"></div>
+            </div>
+            <p class="text-xs text-gray-500">Next update in 30 seconds</p>
+        </div>
+        <button class="w-full mt-4 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-all duration-200 transform hover:scale-105">
+            <i class="fas fa-play mr-2"></i>Start Tracking
+        </button>
+    </div>
+</div>
+
+<!-- Recent Searches / Activity -->
+<div class="glass-effect rounded-xl p-6 mb-8">
+    <div class="flex items-center justify-between mb-6">
+        <h2 class="text-2xl font-bold flex items-center">
+            <i class="fas fa-clock text-blue-400 mr-3"></i>
+            Recent Activity
+        </h2>
+        <button class="text-blue-400 hover:text-blue-300 text-sm transition-colors">
+            Clear history
+        </button>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4" id="recent-activity">
+        <!-- Activity items will be loaded here -->
+        <div class="text-center py-8 col-span-full">
+            <i class="fas fa-satellite text-4xl text-gray-600 mb-3"></i>
+            <p class="text-gray-400">No recent activity. Start by searching for a satellite!</p>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Stats -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="glass-effect rounded-xl p-4 text-center">
+        <div class="text-3xl font-bold text-blue-400 mb-2">40,000+</div>
+        <div class="text-sm text-gray-400">Active Satellites</div>
+    </div>
+    <div class="glass-effect rounded-xl p-4 text-center">
+        <div class="text-3xl font-bold text-green-400 mb-2">24/7</div>
+        <div class="text-sm text-gray-400">Real-time Data</div>
+    </div>
+    <div class="glass-effect rounded-xl p-4 text-center">
+        <div class="text-3xl font-bold text-purple-400 mb-2">150+</div>
+        <div class="text-sm text-gray-400">Countries</div>
+    </div>
+    <div class="glass-effect rounded-xl p-4 text-center">
+        <div class="text-3xl font-bold text-yellow-400 mb-2">99.9%</div>
+        <div class="text-sm text-gray-400">Uptime</div>
+    </div>
+</div>
+
+<!-- Search results container -->
+<div id="search-results" class="hidden"></div>
+
+<script>
+// Quick search functionality
+function performQuickSearch() {
+    const query = document.getElementById('quick-search-input').value.trim();
+    if (!query) {
+        alert('Please enter a search term');
+        return;
+    }
+    
+    // Check if it's a NORAD ID (numeric)
+    if (/^\d+$/.test(query)) {
+        window.location.href = `/satellites/satellite/${query}`;
+    } else {
+        // Perform search
+        window.location.href = `/satellites/search?query=${encodeURIComponent(query)}`;
+    }
+}
+
+// Enter key support for quick search
+document.getElementById('quick-search-input').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        performQuickSearch();
+    }
+});
+
+// Auto-focus search input
+document.getElementById('quick-search-input').focus();
+
+// Simulate recent activity (in a real app, this would come from the backend)
+function loadRecentActivity() {
+    const activities = [
+        { name: 'ISS (ZARYA)', satellite_id: 25544, time: '2 minutes ago', type: 'viewed' },
+        { name: 'Hubble Space Telescope', satellite_id: 20580, time: '1 hour ago', type: 'searched' },
+        { name: 'NOAA-19', satellite_id: 39084, time: '3 hours ago', type: 'tracked' },
+        { name: 'GPS BIIR-2', satellite_id: 26360, time: '1 day ago', type: 'updated' }
+    ];
+    
+    const container = document.getElementById('recent-activity');
+    container.innerHTML = '';
+    
+    activities.forEach(activity => {
+        const typeIcons = {
+            'viewed': 'fas fa-eye text-blue-400',
+            'searched': 'fas fa-search text-green-400',
+            'tracked': 'fas fa-crosshairs text-purple-400',
+            'updated': 'fas fa-sync text-yellow-400'
+        };
+        
+        const item = document.createElement('div');
+        item.className = 'glass-effect rounded-lg p-4 hover:bg-opacity-20 transition-all cursor-pointer';
+        item.onclick = () => window.location.href = `/satellites/satellite/${activity.satellite_id}`;
+        
+        item.innerHTML = `
+            <div class="flex items-center mb-2">
+                <i class="${typeIcons[activity.type]} mr-2"></i>
+                <span class="text-xs text-gray-400 uppercase tracking-wide">${activity.type}</span>
+            </div>
+            <h4 class="font-medium text-sm mb-1">${activity.name}</h4>
+            <p class="text-xs text-gray-500">ID: ${activity.satellite_id}</p>
+            <p class="text-xs text-gray-400 mt-2">${activity.time}</p>
+        `;
+        
+        container.appendChild(item);
+    });
+}
+
+// Load recent activity on page load
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(loadRecentActivity, 1000);
+});
+</script>
+{% endblock %}

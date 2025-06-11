@@ -1,0 +1,580 @@
+{% extends "satellite/base.html" %}
+
+{% block title %}Popular Satellites - SatTracker{% endblock %}
+
+{% block content %}
+<!-- Popular Satellites Header -->
+<div class="glass-effect rounded-xl p-6 mb-8">
+    <div class="text-center mb-6">
+        <div class="flex justify-center mb-4">
+            <div class="w-16 h-16 bg-gradient-to-br from-orange-400 to-red-600 rounded-full flex items-center justify-center">
+                <i class="fas fa-star text-2xl text-white"></i>
+            </div>
+        </div>
+        <h1 class="text-3xl font-bold mb-2 bg-gradient-to-r from-orange-400 to-red-400 bg-clip-text text-transparent">
+            Popular Satellites
+        </h1>
+        <p class="text-gray-400 max-w-2xl mx-auto">
+            Discover the most tracked and interesting satellites currently in orbit
+        </p>
+    </div>
+    
+    <!-- Quick Actions -->
+    <div class="flex flex-wrap gap-3 justify-center">
+        <a href="{{ url_for('satellite.search_page') }}" 
+           class="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-medium py-2 px-6 rounded-lg transition-all duration-200 transform hover:scale-105">
+            <i class="fas fa-search mr-2"></i>Search Satellites
+        </a>
+        <button onclick="filterByCategory('all')" 
+                class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+            <i class="fas fa-filter mr-2"></i>All Categories
+        </button>
+        <button onclick="toggleView()" 
+                class="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+            <i class="fas fa-th mr-2"></i>Toggle View
+        </button>
+    </div>
+</div>
+
+<!-- Category Filter Tabs -->
+<div class="mb-8">
+    <div class="flex flex-wrap justify-center gap-2">
+        <button onclick="filterByCategory('all')" 
+                class="category-filter active bg-white bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all" 
+                data-category="all">
+            <i class="fas fa-globe mr-2"></i>All
+        </button>
+        <button onclick="filterByCategory('Space Station')" 
+                class="category-filter bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all" 
+                data-category="Space Station">
+            <i class="fas fa-space-shuttle mr-2"></i>Space Stations
+        </button>
+        <button onclick="filterByCategory('Communication')" 
+                class="category-filter bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all" 
+                data-category="Communication">
+            <i class="fas fa-satellite-dish mr-2"></i>Communications
+        </button>
+        <button onclick="filterByCategory('Weather')" 
+                class="category-filter bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all" 
+                data-category="Weather">
+            <i class="fas fa-cloud-sun mr-2"></i>Weather
+        </button>
+        <button onclick="filterByCategory('Observatory')" 
+                class="category-filter bg-white bg-opacity-10 hover:bg-opacity-20 text-white px-4 py-2 rounded-full text-sm transition-all" 
+                data-category="Observatory">
+            <i class="fas fa-telescope mr-2"></i>Observatory
+        </button>
+    </div>
+</div>
+
+<!-- Loading State -->
+<div id="loading-state" class="text-center py-12">
+    <div class="loading-spinner mx-auto mb-4"></div>
+    <p class="text-gray-400">Loading popular satellites...</p>
+</div>
+
+<!-- Error State -->
+<div id="error-state" class="hidden text-center py-12">
+    <div class="mb-4">
+        <i class="fas fa-exclamation-triangle text-6xl text-red-400"></i>
+    </div>
+    <h3 class="text-2xl font-bold mb-2 text-red-400">Failed to Load Satellites</h3>
+    <p class="text-gray-500 mb-6" id="error-message">Unable to fetch satellite data</p>
+    <button onclick="loadPopularSatellites()" 
+            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors">
+        <i class="fas fa-redo mr-2"></i>Try Again
+    </button>
+</div>
+
+<!-- Satellites Grid -->
+<div id="satellites-container" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <!-- Satellite cards will be populated by JavaScript -->
+</div>
+
+<!-- Empty State -->
+<div id="empty-state" class="hidden col-span-full text-center py-12">
+    <div class="mb-4">
+        <i class="fas fa-satellite text-6xl text-gray-600"></i>
+    </div>
+    <h3 class="text-2xl font-bold mb-2 text-gray-400">No Satellites Found</h3>
+    <p class="text-gray-500 mb-6">No satellites match the selected category</p>
+    <button onclick="filterByCategory('all')" 
+            class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-6 rounded-lg transition-colors inline-block">
+        <i class="fas fa-globe mr-2"></i>Show All Categories
+    </button>
+</div>
+
+<!-- Satellite Detail Modal -->
+<div id="satellite-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="glass-effect rounded-xl p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+            <h3 class="text-2xl font-bold" id="modal-title">Satellite Details</h3>
+            <button onclick="closeModal()" class="text-gray-400 hover:text-white">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="modal-content" class="space-y-4">
+            <!-- Content will be populated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<script>
+let currentView = 'grid';
+let currentFilter = 'all';
+let satellitesData = [];
+
+// Popular satellite IDs from the blueprint
+const POPULAR_SATELLITE_IDS = [
+    { id: 25544, name: 'International Space Station', category: 'Space Station' },
+    { id: 20580, name: 'Hubble Space Telescope', category: 'Observatory' },
+    { id: 39084, name: 'NOAA-19', category: 'Weather' },
+    { id: 33591, name: 'NOAA-18', category: 'Weather' },
+    { id: 28654, name: 'NOAA-17', category: 'Weather' },
+    { id: 43013, name: 'STARLINK-1007', category: 'Communication' },
+    { id: 37849, name: 'GOES-16', category: 'Weather' }
+];
+
+// Load popular satellites on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadPopularSatellites();
+});
+
+// Load popular satellites data
+async function loadPopularSatellites() {
+    showLoadingState();
+    
+    try {
+        satellitesData = [];
+        
+        // Fetch data for each popular satellite
+        for (const satellite of POPULAR_SATELLITE_IDS) {
+            try {
+                const response = await fetch(`/satellites/api/satellite/${satellite.id}`);
+                const data = await response.json();
+                
+                if (data.success && data.satellite) {
+                    // Merge the static info with API data
+                    const satelliteData = {
+                        ...data.satellite,
+                        satellite_id: satellite.id,
+                        name: data.satellite.name || satellite.name,
+                        category: satellite.category
+                    };
+                    satellitesData.push(satelliteData);
+                } else {
+                    // Fallback to basic info if API fails for individual satellite
+                    satellitesData.push({
+                        satellite_id: satellite.id,
+                        name: satellite.name,
+                        category: satellite.category,
+                        line1: '',
+                        line2: ''
+                    });
+                }
+            } catch (error) {
+                console.error(`Failed to load satellite ${satellite.id}:`, error);
+                // Add basic info even if API call fails
+                satellitesData.push({
+                    satellite_id: satellite.id,
+                    name: satellite.name,
+                    category: satellite.category,
+                    line1: '',
+                    line2: ''
+                });
+            }
+        }
+        
+        if (satellitesData.length > 0) {
+            renderSatellites();
+            showSatellitesContainer();
+        } else {
+            showEmptyState();
+        }
+        
+    } catch (error) {
+        console.error('Failed to load popular satellites:', error);
+        showErrorState('Failed to load satellite data. Please check your connection.');
+    }
+}
+
+// Show different states
+function showLoadingState() {
+    document.getElementById('loading-state').classList.remove('hidden');
+    document.getElementById('error-state').classList.add('hidden');
+    document.getElementById('satellites-container').classList.add('hidden');
+    document.getElementById('empty-state').classList.add('hidden');
+}
+
+function showErrorState(message) {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('error-state').classList.remove('hidden');
+    document.getElementById('satellites-container').classList.add('hidden');
+    document.getElementById('empty-state').classList.add('hidden');
+    document.getElementById('error-message').textContent = message;
+}
+
+function showSatellitesContainer() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('error-state').classList.add('hidden');
+    document.getElementById('satellites-container').classList.remove('hidden');
+    document.getElementById('empty-state').classList.add('hidden');
+}
+
+function showEmptyState() {
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('error-state').classList.add('hidden');
+    document.getElementById('satellites-container').classList.add('hidden');
+    document.getElementById('empty-state').classList.remove('hidden');
+}
+
+// Render satellites
+function renderSatellites() {
+    const container = document.getElementById('satellites-container');
+    container.innerHTML = '';
+    
+    const filteredSatellites = satellitesData.filter(satellite => 
+        currentFilter === 'all' || satellite.category === currentFilter
+    );
+    
+    if (filteredSatellites.length === 0) {
+        showEmptyState();
+        return;
+    }
+    
+    filteredSatellites.forEach(satellite => {
+        const card = createSatelliteCard(satellite);
+        container.appendChild(card);
+    });
+    
+    showSatellitesContainer();
+}
+
+// Create satellite card element
+function createSatelliteCard(satellite) {
+    const card = document.createElement('div');
+    card.className = 'satellite-card glass-effect rounded-xl p-6 transition-all duration-300 hover:transform hover:scale-105 cursor-pointer';
+    card.setAttribute('data-category', satellite.category);
+    card.onclick = () => viewSatelliteDetails(satellite.satellite_id);
+    
+    // Calculate additional info from TLE data
+    const orbitalPeriod = satellite.orbital_period ? `${satellite.orbital_period.toFixed(0)} min` : 'Unknown';
+    const inclination = satellite.inclination ? `${satellite.inclination.toFixed(1)}°` : 'Unknown';
+    const lastUpdate = satellite.epoch || 'Unknown';
+    
+    card.innerHTML = `
+        <div class="flex items-start justify-between mb-4">
+            <div class="flex items-center flex-1 min-w-0">
+                <div class="w-12 h-12 bg-gradient-to-br ${getCategoryGradient(satellite.category)} rounded-full flex items-center justify-center mr-3 flex-shrink-0">
+                    <i class="${getCategoryIcon(satellite.category)} text-white"></i>
+                </div>
+                <div class="min-w-0 flex-1">
+                    <h3 class="font-bold text-lg text-white truncate" title="${satellite.name}">
+                        ${satellite.name}
+                    </h3>
+                    <p class="text-gray-400 text-sm">NORAD: ${satellite.satellite_id}</p>
+                </div>
+            </div>
+            <div class="flex flex-col items-end ml-2">
+                <span class="text-green-400 text-xs font-medium px-2 py-1 rounded-full bg-green-500 bg-opacity-20">
+                    <i class="fas fa-circle text-xs mr-1"></i>Tracked
+                </span>
+            </div>
+        </div>
+        
+        <div class="space-y-3 text-sm mb-4">
+            <div class="flex justify-between items-center">
+                <span class="text-gray-400">Category:</span>
+                <span class="text-white font-medium">${satellite.category}</span>
+            </div>
+            
+            <div class="flex justify-between items-center">
+                <span class="text-gray-400">Orbital Period:</span>
+                <span class="text-white">${orbitalPeriod}</span>
+            </div>
+            
+            <div class="flex justify-between items-center">
+                <span class="text-gray-400">Inclination:</span>
+                <span class="text-white">${inclination}</span>
+            </div>
+            
+            ${satellite.mean_motion ? `
+            <div class="flex justify-between items-center">
+                <span class="text-gray-400">Mean Motion:</span>
+                <span class="text-white">${satellite.mean_motion.toFixed(2)} rev/day</span>
+            </div>
+            ` : ''}
+        </div>
+        
+        <div class="flex items-center justify-between pt-4 border-t border-gray-600">
+            <div class="flex items-center space-x-3">
+                <button onclick="event.stopPropagation(); trackSatellite('${satellite.satellite_id}')" 
+                        class="text-blue-400 hover:text-blue-300 text-sm font-medium transition-colors">
+                    <i class="fas fa-crosshairs mr-1"></i>Track
+                </button>
+                <button onclick="event.stopPropagation(); addToFavorites('${satellite.satellite_id}')" 
+                        class="text-yellow-400 hover:text-yellow-300 text-sm font-medium transition-colors">
+                    <i class="fas fa-star mr-1"></i>Favorite
+                </button>
+            </div>
+            <div class="text-xs text-gray-500">
+                <i class="fas fa-clock mr-1"></i>Popular
+            </div>
+        </div>
+    `;
+    
+    return card;
+}
+
+// Category filtering
+function filterByCategory(category) {
+    currentFilter = category;
+    const buttons = document.querySelectorAll('.category-filter');
+    
+    // Update button states
+    buttons.forEach(btn => {
+        btn.classList.remove('active', 'bg-white', 'bg-opacity-20');
+        btn.classList.add('bg-white', 'bg-opacity-10');
+        if (btn.dataset.category === category) {
+            btn.classList.remove('bg-opacity-10');
+            btn.classList.add('active', 'bg-opacity-20');
+        }
+    });
+    
+    // Re-render satellites with filter
+    renderSatellites();
+}
+
+// Toggle between grid and list view
+function toggleView() {
+    const container = document.getElementById('satellites-container');
+    const button = event.target.closest('button');
+    
+    if (currentView === 'grid') {
+        currentView = 'list';
+        container.className = 'space-y-4';
+        button.innerHTML = '<i class="fas fa-th mr-2"></i>Grid View';
+        
+        // Update card styles for list view
+        document.querySelectorAll('.satellite-card').forEach(card => {
+            card.className = card.className.replace('hover:scale-105', '');
+        });
+    } else {
+        currentView = 'grid';
+        container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6';
+        button.innerHTML = '<i class="fas fa-list mr-2"></i>List View';
+        
+        // Restore card styles for grid view
+        document.querySelectorAll('.satellite-card').forEach(card => {
+            if (!card.className.includes('hover:scale-105')) {
+                card.className += ' hover:scale-105';
+            }
+        });
+    }
+}
+
+// View satellite details
+async function viewSatelliteDetails(noradId) {
+    const modal = document.getElementById('satellite-modal');
+    const title = document.getElementById('modal-title');
+    const content = document.getElementById('modal-content');
+    
+    title.textContent = `Loading Satellite ${noradId}...`;
+    content.innerHTML = `
+        <div class="text-center py-8">
+            <div class="loading-spinner mx-auto mb-4"></div>
+            <p class="text-gray-400">Loading satellite details...</p>
+        </div>
+    `;
+    
+    modal.classList.remove('hidden');
+    
+    try {
+        const response = await fetch(`/satellites/api/satellite/${noradId}`);
+        const data = await response.json();
+        
+        if (data.success && data.satellite) {
+            const satellite = data.satellite;
+            title.textContent = satellite.name || `Satellite ${noradId}`;
+            
+            content.innerHTML = `
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-bold text-blue-400">Orbital Information</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">NORAD ID:</span>
+                                <span class="text-white">${noradId}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Inclination:</span>
+                                <span class="text-white">${satellite.inclination ? satellite.inclination.toFixed(2) + '°' : 'Unknown'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Eccentricity:</span>
+                                <span class="text-white">${satellite.eccentricity ? satellite.eccentricity.toFixed(6) : 'Unknown'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Orbital Period:</span>
+                                <span class="text-white">${satellite.orbital_period ? satellite.orbital_period.toFixed(1) + ' min' : 'Unknown'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Mean Motion:</span>
+                                <span class="text-white">${satellite.mean_motion ? satellite.mean_motion.toFixed(3) + ' rev/day' : 'Unknown'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4">
+                        <h4 class="text-lg font-bold text-green-400">TLE Information</h4>
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Epoch:</span>
+                                <span class="text-white">${satellite.epoch || 'Unknown'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Line 1:</span>
+                                <span class="text-white text-xs font-mono break-all">${satellite.line1 ? satellite.line1.substring(0, 30) + '...' : 'N/A'}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-400">Line 2:</span>
+                                <span class="text-white text-xs font-mono break-all">${satellite.line2 ? satellite.line2.substring(0, 30) + '...' : 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-6 pt-6 border-t border-gray-600">
+                    <div class="flex flex-wrap gap-3">
+                        <a href="/satellites/satellite/${noradId}" 
+                           class="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-eye mr-2"></i>View Details
+                        </a>
+                        <button onclick="trackSatellite('${noradId}')" 
+                                class="bg-green-500 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-crosshairs mr-2"></i>Track Now
+                        </button>
+                        <button onclick="addToFavorites('${noradId}')" 
+                                class="bg-yellow-500 hover:bg-yellow-600 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            <i class="fas fa-star mr-2"></i>Add to Favorites
+                        </button>
+                    </div>
+                </div>
+            `;
+        } else {
+            content.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4"></i>
+                    <p class="text-red-400">Failed to load satellite details</p>
+                    <p class="text-gray-500 text-sm mt-2">${data.error || 'Unknown error'}</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading satellite details:', error);
+        content.innerHTML = `
+            <div class="text-center py-8">
+                <i class="fas fa-exclamation-triangle text-4xl text-red-400 mb-4"></i>
+                <p class="text-red-400">Network error loading satellite details</p>
+                <p class="text-gray-500 text-sm mt-2">Please check your connection and try again</p>
+            </div>
+        `;
+    }
+}
+
+// Close modal
+function closeModal() {
+    document.getElementById('satellite-modal').classList.add('hidden');
+}
+
+// Track satellite
+function trackSatellite(noradId) {
+    // Navigate to satellite detail page
+    window.location.href = `/satellites/satellite/${noradId}`;
+}
+
+// Add to favorites
+function addToFavorites(noradId) {
+    // In a real app, this would make an API call to save favorites
+    const message = `Added satellite ${noradId} to favorites!`;
+    
+    // Show a temporary notification
+    const notification = document.createElement('div');
+    notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg z-50 transition-all duration-300';
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+
+// Close modal when clicking outside
+document.getElementById('satellite-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeModal();
+    }
+});
+
+// Helper functions for categories
+function getCategoryIcon(category) {
+    const icons = {
+        'Space Station': 'fas fa-space-shuttle',
+        'Communication': 'fas fa-satellite-dish',
+        'Weather': 'fas fa-cloud-sun',
+        'Observatory': 'fas fa-telescope'
+    };
+    return icons[category] || 'fas fa-satellite';
+}
+
+function getCategoryGradient(category) {
+    const gradients = {
+        'Space Station': 'from-blue-400 to-purple-600',
+        'Communication': 'from-green-400 to-blue-600',
+        'Weather': 'from-yellow-400 to-orange-600',
+        'Observatory': 'from-red-400 to-purple-600'
+    };
+    return gradients[category] || 'from-gray-400 to-gray-600';
+}
+
+// Add CSS for animations and styling
+const style = document.createElement('style');
+style.textContent = `
+    .animate-fade-in {
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .loading-spinner {
+        border: 3px solid rgba(255, 255, 255, 0.1);
+        border-top: 3px solid #3b82f6;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .glass-effect {
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+`;
+document.head.appendChild(style);
+</script>
+
+{% endblock %}

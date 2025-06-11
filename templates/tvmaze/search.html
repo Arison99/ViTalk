@@ -1,0 +1,218 @@
+<!-- templates/tvmaze/search.html -->
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TV Show Search</title>
+    <script src="https://unpkg.com/htmx.org@1.9.2"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    animation: {
+                        'fade-in': 'fadeIn 0.3s ease-in-out',
+                        'slide-up': 'slideUp 0.4s ease-out',
+                        'pulse-glow': 'pulseGlow 2s infinite',
+                    },
+                    keyframes: {
+                        fadeIn: {
+                            '0%': { opacity: '0' },
+                            '100%': { opacity: '1' }
+                        },
+                        slideUp: {
+                            '0%': { transform: 'translateY(20px)', opacity: '0' },
+                            '100%': { transform: 'translateY(0)', opacity: '1' }
+                        },
+                        pulseGlow: {
+                            '0%, 100%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.3)' },
+                            '50%': { boxShadow: '0 0 40px rgba(59, 130, 246, 0.6)' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <!-- Background Effects -->
+    <div class="fixed inset-0 bg-[url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%23ffffff" fill-opacity="0.03"%3E%3Ccircle cx="30" cy="30" r="2"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E')] opacity-50"></div>
+    
+    <div class="relative z-10 container mx-auto px-4 py-12 max-w-7xl">
+        <!-- Header Section -->
+        <div class="text-center mb-12 animate-fade-in">
+            <div class="inline-flex items-center gap-3 mb-4">
+                <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                    </svg>
+                </div>
+                <h1 class="text-5xl font-bold bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    TV Show Discovery
+                </h1>
+            </div>
+            <p class="text-gray-300 text-lg max-w-2xl mx-auto">
+                Discover your next binge-worthy series with our comprehensive TV show search engine
+            </p>
+        </div>
+
+        <!-- Search Form -->
+        <form method="get" class="mb-12 animate-slide-up">
+            <div class="relative max-w-2xl mx-auto">
+                <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <svg class="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                    </svg>
+                </div>
+                <input 
+                    type="text" 
+                    name="q" 
+                    value="{{ query or '' }}" 
+                    placeholder="Search for TV shows, series, documentaries..." 
+                    class="w-full pl-12 pr-6 py-4 bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl text-white placeholder-gray-300 text-lg focus:outline-none focus:ring-2 focus:ring-blue-400/50 focus:border-blue-400/50 transition-all duration-300 hover:bg-white/15"
+                    autocomplete="off"
+                >
+                <div class="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 -z-10 blur-xl opacity-0 transition-opacity duration-300 hover:opacity-100"></div>
+            </div>
+        </form>
+
+        <!-- Results Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8" id="results">
+            {% for result in shows %}
+                {% set show = result.show %}
+                <div 
+                    class="group relative bg-white/10 backdrop-blur-sm rounded-2xl overflow-hidden shadow-2xl hover:shadow-3xl transition-all duration-500 hover:scale-105 hover:bg-white/15 cursor-pointer animate-fade-in border border-white/10"
+                    hx-get="/tvmaze/show/{{ show.id }}" 
+                    hx-target="#details" 
+                    hx-swap="innerHTML"
+                    style="animation-delay: {{ loop.index0 * 0.1 }}s"
+                >
+                    <!-- Image Container -->
+                    <div class="relative aspect-[3/4] overflow-hidden">
+                        {% if show.image %}
+                            <img 
+                                src="{{ show.image.medium }}" 
+                                alt="{{ show.name }}" 
+                                class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                loading="lazy"
+                            >
+                        {% else %}
+                            <div class="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
+                                <svg class="w-16 h-16 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- Overlay Gradient -->
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        
+                        <!-- Rating Badge -->
+                        {% if show.rating.average %}
+                            <div class="absolute top-3 right-3 bg-yellow-500/90 backdrop-blur-sm text-black px-2 py-1 rounded-lg text-sm font-bold flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+                                </svg>
+                                {{ show.rating.average }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Content -->
+                    <div class="p-6 space-y-3">
+                        <h2 class="text-xl font-bold text-white group-hover:text-blue-300 transition-colors duration-300 line-clamp-2">
+                            {{ show.name }}
+                        </h2>
+                        
+                        <!-- Genres -->
+                        {% if show.genres %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for genre in show.genres[:2] %}
+                                    <span class="px-2 py-1 bg-blue-500/30 text-blue-200 text-xs rounded-full border border-blue-400/30">
+                                        {{ genre }}
+                                    </span>
+                                {% endfor %}
+                                {% if show.genres|length > 2 %}
+                                    <span class="px-2 py-1 bg-gray-500/30 text-gray-300 text-xs rounded-full border border-gray-400/30">
+                                        +{{ show.genres|length - 2 }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Network -->
+                        {% if show.network %}
+                            <div class="flex items-center gap-2 text-gray-300 text-sm">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                                </svg>
+                                <span class="truncate">{{ show.network.name }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Hover Effect -->
+                    <div class="absolute inset-0 ring-2 ring-blue-400/0 rounded-2xl transition-all duration-300 group-hover:ring-blue-400/50"></div>
+                </div>
+            {% endfor %}
+        </div>
+
+        <!-- Details Section -->
+        <div id="details" class="mt-12"></div>
+
+        <!-- Empty State (when no results) -->
+        {% if not shows and query %}
+            <div class="text-center py-16 animate-fade-in">
+                <div class="w-24 h-24 bg-gray-700/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <svg class="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.137 0-4.146.832-5.636 2.364M6.343 7.343A8 8 0 0112 6c4.411 0 8 3.589 8 8a7.96 7.96 0 01-.87 3.628m-6.302 1.1L12 21l-.828-2.272m0 0L9.5 16.5m1.672 2.228L13.5 16.5"></path>
+                    </svg>
+                </div>
+                <h3 class="text-2xl font-bold text-white mb-2">No shows found</h3>
+                <p class="text-gray-400 max-w-md mx-auto">
+                    We couldn't find any TV shows matching "{{ query }}". Try a different search term or check your spelling.
+                </p>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Loading States -->
+    <style>
+        .htmx-request #results {
+            opacity: 0.6;
+            transition: opacity 0.3s ease;
+        }
+        
+        .htmx-request #details {
+            position: relative;
+        }
+        
+        .htmx-request #details::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 32px;
+            height: 32px;
+            margin: -16px 0 0 -16px;
+            border: 3px solid #374151;
+            border-top-color: #3B82F6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .line-clamp-2 {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+    </style>
+    {% include 'footer.html' %}
+</body>
+</html>

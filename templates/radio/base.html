@@ -1,0 +1,195 @@
+
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Radio Browser{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .audio-player {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 50;
+        }
+        .audio-player.show {
+            transform: translateY(0);
+        }
+        .wave-animation {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+            margin: 0 2px;
+        }
+        .wave-animation div {
+            width: 3px;
+            height: 100%;
+            background: #fff;
+            margin: 0 1px;
+            display: inline-block;
+            animation: wave 1.2s infinite ease-in-out;
+        }
+        .wave-animation div:nth-child(2) { animation-delay: -1.1s; }
+        .wave-animation div:nth-child(3) { animation-delay: -1.0s; }
+        .wave-animation div:nth-child(4) { animation-delay: -0.9s; }
+        @keyframes wave {
+            0%, 40%, 100% { transform: scaleY(0.4); }
+            20% { transform: scaleY(1.0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="{{ url_for('radio.index') }}" class="flex items-center space-x-2">
+                        <i class="fas fa-radio text-blue-600 text-2xl"></i>
+                        <span class="font-bold text-xl text-gray-900">Radio Browser</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="{{ url_for('radio.index') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                        <i class="fas fa-home mr-1"></i>Home
+                    </a>
+                    <a href="{{ url_for('radio.search') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                        <i class="fas fa-search mr-1"></i>Search
+                    </a>
+                    <a href="{{ url_for('radio.favorites') }}" class="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                        <i class="fas fa-heart mr-1"></i>Favorites
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Audio Player -->
+    <div id="audioPlayer" class="audio-player">
+        <div class="p-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <button id="playPauseBtn" class="bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full p-2 transition-colors">
+                        <i id="playPauseIcon" class="fas fa-play text-white"></i>
+                    </button>
+                    <div class="text-white">
+                        <div id="currentStation" class="font-medium">No station selected</div>
+                        <div id="currentCountry" class="text-sm opacity-75"></div>
+                    </div>
+                    <div id="waveAnimation" class="wave-animation hidden">
+                        <div></div><div></div><div></div><div></div>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="volumeBtn" class="text-white hover:text-gray-200 transition-colors">
+                        <i id="volumeIcon" class="fas fa-volume-up"></i>
+                    </button>
+                    <input id="volumeSlider" type="range" min="0" max="100" value="70" class="w-20 h-2 bg-white bg-opacity-20 rounded-lg appearance-none slider">
+                    <button id="closePlayer" class="text-white hover:text-gray-200 transition-colors ml-4">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <audio id="radioAudio" preload="none"></audio>
+    {% include 'footer.html' %}
+    <script type="module" src="{{ url_for('static', filename='js/stream.js') }}"></script>
+
+    <script>
+        // Audio player functionality
+        const audio = document.getElementById('radioAudio');
+        const player = document.getElementById('audioPlayer');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playPauseIcon = document.getElementById('playPauseIcon');
+        const currentStation = document.getElementById('currentStation');
+        const currentCountry = document.getElementById('currentCountry');
+        const waveAnimation = document.getElementById('waveAnimation');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const volumeIcon = document.getElementById('volumeIcon');
+        const closePlayer = document.getElementById('closePlayer');
+
+        let currentStationData = null;
+
+        // Play station function
+        window.playStation = function(stationUuid, stationName, country) {
+            fetch(`{{ url_for('radio.api_play_station', station_uuid='') }}${stationUuid}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        audio.src = data.url;
+                        currentStation.textContent = stationName;
+                        currentCountry.textContent = country || '';
+                        currentStationData = { uuid: stationUuid, name: stationName, country: country };
+                        player.classList.add('show');
+                        audio.play();
+                    } else {
+                        alert('Failed to load radio station');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Failed to load radio station');
+                });
+        };
+
+        // Play/pause functionality
+        playPauseBtn.addEventListener('click', () => {
+            if (audio.paused) {
+                audio.play();
+            } else {
+                audio.pause();
+            }
+        });
+
+        // Audio event listeners
+        audio.addEventListener('play', () => {
+            playPauseIcon.className = 'fas fa-pause text-white';
+            waveAnimation.classList.remove('hidden');
+        });
+
+        audio.addEventListener('pause', () => {
+            playPauseIcon.className = 'fas fa-play text-white';
+            waveAnimation.classList.add('hidden');
+        });
+
+        // Volume control
+        volumeSlider.addEventListener('input', (e) => {
+            audio.volume = e.target.value / 100;
+            updateVolumeIcon(e.target.value);
+        });
+
+        function updateVolumeIcon(volume) {
+            if (volume == 0) {
+                volumeIcon.className = 'fas fa-volume-mute';
+            } else if (volume < 50) {
+                volumeIcon.className = 'fas fa-volume-down';
+            } else {
+                volumeIcon.className = 'fas fa-volume-up';
+            }
+        }
+
+        // Close player
+        closePlayer.addEventListener('click', () => {
+            audio.pause();
+            player.classList.remove('show');
+        });
+
+        // Set initial volume
+        audio.volume = 0.7;
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

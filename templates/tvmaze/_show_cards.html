@@ -1,0 +1,15 @@
+{% for result in shows %}
+  {% set show = result.show %}
+  <div class="bg-white rounded shadow p-4 hover:shadow-lg transition-shadow cursor-pointer" 
+       hx-get="{{ url_for('tvmaze.show_detail', show_id=show.id) }}"
+       hx-target="#details" 
+       hx-swap="innerHTML">
+    <img src="{{ show.image.medium if show.image else 'https://via.placeholder.com/210x295' }}" 
+         alt="{{ show.name }}" 
+         class="w-full h-auto mb-4 rounded">
+    <h2 class="text-xl font-semibold">{{ show.name }}</h2>
+    <p class="text-sm text-gray-600">{{ show.genres | join(', ') if show.genres }}</p>
+    <p class="text-sm text-gray-600">Rating: {{ show.rating.average or 'N/A' }}</p>
+    <p class="text-sm text-gray-600">{{ show.network.name if show.network else '' }}</p>
+  </div>
+{% endfor %}
