@@ -2,25 +2,23 @@ providers = ["python"]
 
 [phases.setup]
 nixPkgs = [
-  "python311",
-  "python311Packages.flask",
-  "python311Packages.requests",
-  "python311Packages.pyaudio",
-  "python311Packages.pyttsx3",
-  "python311Packages.speechrecognition",
-  "python311Packages.flask_cors",
+  "python310",
+  "python310Packages.pip",
+  "python310Packages.virtualenv",
   "portaudio",
   "alsa-lib",
   "libffi",
   "libpulseaudio",
-  "ffmpeg"
+  "ffmpeg",
+  "gcc"
 ]
 
 [phases.install]
 installScript = """
-PYTHONPATH="$PYTHONPATH:$(python3 -c 'import site; print(site.getsitepackages()[0])')"
-python3 -c 'import flask, requests, pyaudio, pyttsx3, speech_recognition as sr, flask_cors'
+python3 -m venv /app/venv
+source /app/venv/bin/activate
+pip install --no-cache-dir -r requirements.txt
 """
 
 [start]
-cmd = "python app.py"
+cmd = "source /app/venv/bin/activate && python app.py"
