@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ViTalk</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .header h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .section h2 {
+            color: #2d3748;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 0.5rem;
+        }
+        
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        
+        .api-card {
+            background: #f7fafc;
+            padding: 1.5rem;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .api-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+        
+        .api-card h3 {
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-size: 1.3rem;
+        }
+        
+        .api-card .url {
+            background: #667eea;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            display: inline-block;
+            margin: 0.5rem 0;
+        }
+        
+        .method {
+            background: #48bb78;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-left: 0.5rem;
+        }
+        
+        .method.post {
+            background: #ed8936;
+        }
+        
+        .commands-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .command-category {
+            background: #f7fafc;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #764ba2;
+        }
+        
+        .command-category h4 {
+            color: #2d3748;
+            margin-bottom: 0.5rem;
+            font-size: 1.1rem;
+        }
+        
+        .command-list {
+            list-style: none;
+        }
+        
+        .command-list li {
+            background: #e2e8f0;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .usage-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-top: 1.5rem;
+        }
+        
+        .usage-box h3 {
+            margin-bottom: 1rem;
+            font-size: 1.4rem;
+        }
+        
+        .usage-box code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.25rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.9rem;
+        }
+        
+        .footer {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            margin-top: 2rem;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎤 ViTalk</h1>
+            <p>🎤 Voice-Controlled Flask App using speech-to-text technology</p>
+        </div>
+
+        <div class="section">
+            <h2>📡 API Endpoints</h2>
+            <div class="api-grid">
+                <div class="api-card">
+                    <h3>Voice Command</h3>
+                    <div class="url">/voice-command</div>
+                    <span class="method post">POST</span>
+                    <p>Activate voice listening and process spoken commands. The system will listen for your voice input and route you to the appropriate section.</p>
+                </div>
+                
+                <div class="api-card">
+                    <h3>Voice Status</h3>
+                    <div class="url">/voice-status</div>
+                    <span class="method">GET</span>
+                    <p>Check whether the voice recognition system is currently active and listening for commands.</p>
+                </div>
+                
+                <div class="api-card">
+                    <h3>Voice Test</h3>
+                    <div class="url">/voice-test</div>
+                    <span class="method post">POST</span>
+                    <p>Test the voice recognition system without executing any routing commands. Useful for debugging.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Available Voice Commands</h2>
+            <div class="commands-grid">
+                <div class="command-category">
+                    <h4>📺 TV Shows</h4>
+                    <ul class="command-list">
+                        <li>"search show"</li>
+                        <li>"tv shows"</li>
+                        <li>"television"</li>
+                        <li>"show search"</li>
+                        <li>"find show"</li>
+                        <li>"tv series"</li>
+                    </ul>
+                    <p><strong>Route:</strong> <code>/tvmaze/</code></p>
+                </div>
+                
+                <div class="command-category">
+                    <h4>📖 Episode Details</h4>
+                    <ul class="command-list">
+                        <li>"episode details"</li>
+                        <li>"episode info"</li>
+                        <li>"show details"</li>
+                        <li>"episode data"</li>
+                        <li>"show episodes"</li>
+                    </ul>
+                    <p><strong>Route:</strong> <code>/tvmaze/show/&lt;show_id&gt;</code></p>
+                </div>
+                
+                <div class="command-category">
+                    <h4>📻 Radio</h4>
+                    <ul class="command-list">
+                        <li>"radio"</li>
+                        <li>"radio station"</li>
+                        <li>"music"</li>
+                        <li>"audio"</li>
+                        <li>"listen radio"</li>
+                        <li>"tune radio"</li>
+                    </ul>
+                    <p><strong>Route:</strong> <code>/radio/</code></p>
+                </div>
+                
+                <div class="command-category">
+                    <h4>🛰️ Satellite Data</h4>
+                    <ul class="command-list">
+                        <li>"satellite"</li>
+                        <li>"satellites"</li>
+                        <li>"satellite data"</li>
+                        <li>"space data"</li>
+                        <li>"orbital data"</li>
+                    </ul>
+                    <p><strong>Route:</strong> <code>/satellites/</code></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🚀 How It Works</h2>
+            <p>This Flask application uses speech-to-text technology to process voice commands and route you to different sections. The system only actively listens when you make a POST request to the voice endpoints.</p>
+            
+            <div class="usage-box">
+                <h3>Quick Start:</h3>
+                <p>1. Make a POST request to <code>/voice-command</code></p>
+                <p>2. Speak one of the available commands</p>
+                <p>3. Get automatically routed to the relevant section</p>
+                <p>4. Check <code>/voice-status</code> to see if the system is listening</p>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🎤 Voice-Controlled Flask App | Powered by Speech Recognition Technology</p>
+        </div>
+    </div>
+    {% include 'footer.html' %}
+</body>
+</html>
