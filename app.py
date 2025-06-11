@@ -17,7 +17,7 @@ app.register_blueprint(satellite_bp, url_prefix='/satellites')
 app.register_blueprint(radio_bp, url_prefix='/radio')
 
 # Initialize the Enhanced Voice Router (no wake word needed for the enhanced version)
-vr = EnhancedVoiceRouter(debug_mode=True, listening_timeout=5.0)
+vr = EnhancedVoiceRouter(debug_mode=False, listening_timeout=5.0)
 
 # Global flag to control when SST should be active
 listening_lock = threading.Lock()
@@ -212,9 +212,8 @@ if __name__ == '__main__':
     print("\n💡 Example usage:")
     print("  curl -X POST http://localhost:5000/voice-command")
     print("  (Then speak your command)")
-    
-    try:
-        app.run(debug=True, threaded=True)
+      try:
+        app.run(debug=False, threaded=True)
     except KeyboardInterrupt:
         print("\n🛑 Shutting down...")
         cleanup_voice_router()
