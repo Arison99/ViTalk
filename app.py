@@ -1,5 +1,5 @@
 # ---------- app.py ----------
-from flask import Flask, request, jsonify
+from flask import Flask, render_template, request, jsonify
 from routes.tvmaze import tvmaze_bp
 from routes.satellite import satellite_bp
 from routes.radio import radio_bp
@@ -162,36 +162,9 @@ def voice_test():
 @app.route('/')
 def index():
     """
-    Main index route with API information
+    Main index route serving home page
     """
-    return jsonify({
-        "message": "Voice-Controlled Flask App",
-        "description": "SST.py only actively listens when POST requests are made to voice endpoints",
-        "endpoints": {
-            "voice_command": {
-                "url": "/voice-command",
-                "method": "POST",
-                "description": "Activate voice listening and process command"
-            },
-            "voice_status": {
-                "url": "/voice-status", 
-                "method": "GET",
-                "description": "Check if voice system is currently listening"
-            },
-            "voice_test": {
-                "url": "/voice-test",
-                "method": "POST", 
-                "description": "Test voice recognition without routing"
-            }
-        },
-        "available_voice_commands": [
-            "search show", "tv shows", "television",
-            "episode details", "episode info", 
-            "radio", "music", "tune radio",
-            "satellite", "satellite data", "space data"
-        ],
-        "usage": "Make a POST request to /voice-command to activate voice listening"
-    })
+    return render_template('home.html')
 
 # Error handler for busy voice system
 @app.errorhandler(429)
