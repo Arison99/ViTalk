@@ -7,7 +7,7 @@ nixPkgs = [
   "python310Packages.virtualenv",
   "portaudio",
   "pkg-config",
-  "alsaLib",
+  "alsa-lib",
   "libffi",
   "pulseaudio",
   "ffmpeg",
