@@ -2,13 +2,13 @@ providers = ["python"]
 
 [phases.setup]
 nixPkgs = [
-  "python3",
-  "python3Packages.flask",
-  "python3Packages.requests",
-  "python3Packages.pyaudio",
-  "python3Packages.pyttsx3",
-  "python3Packages.speechrecognition",
-  "python3Packages.flask-cors",
+  "python311",
+  "python311Packages.flask",
+  "python311Packages.requests",
+  "python311Packages.pyaudio",
+  "python311Packages.pyttsx3",
+  "python311Packages.speechrecognition",
+  "python311Packages.flask_cors",
   "portaudio",
   "alsa-lib",
   "libffi",
@@ -17,9 +17,10 @@ nixPkgs = [
 ]
 
 [phases.install]
-cmds = [
-    "python3 -c 'import flask, requests, pyaudio, pyttsx3, speech_recognition, flask_cors'"
-]
+installScript = """
+PYTHONPATH="$PYTHONPATH:$(python3 -c 'import site; print(site.getsitepackages()[0])')"
+python3 -c 'import flask, requests, pyaudio, pyttsx3, speech_recognition as sr, flask_cors'
+"""
 
 [start]
 cmd = "python app.py"
