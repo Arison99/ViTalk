@@ -212,7 +212,7 @@ if __name__ == '__main__':
     print("\n💡 Example usage:")
     print("  curl -X POST http://localhost:5000/voice-command")
     print("  (Then speak your command)")
-      try:
+    try:
         app.run(debug=False, threaded=True)
     except KeyboardInterrupt:
         print("\n🛑 Shutting down...")
