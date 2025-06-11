@@ -7,4 +7,4 @@ werkzeug  # Usually comes with Flask
 PyAudio
 pyttsx3
 SpeechRecognition 
-fask_cors
+flask_cors
