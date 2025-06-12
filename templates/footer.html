@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic</title>
+    <title>Mic - Production Ready</title>
 </head>
 <body>
     <!-- Include the draggable footer -->
     <div id="footer-container"></div>
 
     <script>
-        // Load footer template via AJAX ( with direct insertion)
+        // Load footer template via AJAX (simulated with direct insertion for demo)
         function loadFooter() {
             const footerHTML = `
                 <!-- templates/footer.html -->
@@ -35,22 +35,22 @@
                         display: flex;
                         align-items: center;
                         justify-content: center;
+                        /* Touch-specific improvements */
+                        -webkit-tap-highlight-color: transparent;
                         touch-action: none;
-                        -webkit-touch-callout: none;
-                        -webkit-user-select: none;
-                        -moz-user-select: none;
-                        -ms-user-select: none;
+                        /* Fix sticky behavior */
+                        transform: translate3d(0, 0, 0);
+                        will-change: transform;
                     }
 
-                    #mic-button:hover {
-                        transform: scale(1.1);
+                    #mic-button:hover:not(.recording):not(.dragging) {
+                        transform: scale(1.1) translate3d(0, 0, 0);
                         box-shadow: 0 8px 25px rgba(92, 37, 193, 0.6);
                         background: linear-gradient(135deg, rgb(107, 52, 208), rgb(162, 66, 249));
                     }
 
                     #mic-button:active {
                         cursor: grabbing;
-                        transform: scale(0.95);
                     }
 
                     #mic-button.recording {
@@ -60,9 +60,9 @@
 
                     #mic-button.dragging {
                         cursor: grabbing;
-                        transform: scale(1.1);
+                        transform: scale(1.05) translate3d(0, 0, 0);
                         transition: none;
-                        opacity: 0.8;
+                        box-shadow: 0 10px 30px rgba(92, 37, 193, 0.8);
                     }
 
                     #mic-button.disabled {
@@ -72,8 +72,8 @@
                     }
 
                     @keyframes pulse {
-                        0%, 100% { transform: scale(1); }
-                        50% { transform: scale(1.05); }
+                        0%, 100% { transform: scale(1) translate3d(0, 0, 0); }
+                        50% { transform: scale(1.05) translate3d(0, 0, 0); }
                     }
 
                     .mic-tooltip {
@@ -93,34 +93,35 @@
                         z-index: 10000;
                     }
 
-                    #mic-button:hover .mic-tooltip {
+                    #mic-button:hover .mic-tooltip:not(.error-tooltip) {
                         opacity: 1;
                         transform: translateY(0);
                     }
 
                     .error-tooltip {
                         background: rgba(239, 68, 68, 0.9) !important;
+                        opacity: 1 !important;
+                        transform: translateY(0) !important;
                     }
 
                     /* Mobile-specific styles */
                     @media (max-width: 768px) {
-                        #mic-button {
-                            width: 56px;
-                            height: 56px;
-                            font-size: 20px;
-                            padding: 16px;
-                        }
-                        
                         .mic-tooltip {
                             font-size: 10px;
                             padding: 6px 8px;
+                            bottom: 65px;
                         }
+                    }
+
+                    /* Smooth position transitions when not dragging */
+                    #mic-button:not(.dragging) {
+                        transition: left 0.3s ease, top 0.3s ease, right 0.3s ease, bottom 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                     }
                 </style>
 
                 <button id="mic-button" title="Voice Assistant - Drag me around!">
                     🎤
-                    <div class="mic-tooltip">Click to record • Drag to move</div>
+                    <div class="mic-tooltip">Tap to record • Drag to move</div>
                 </button>
             `;
             
@@ -133,11 +134,12 @@
             let isDragging = false;
             let dragOffset = { x: 0, y: 0 };
             let isRecording = false;
-            let clickTimeout = null;
-            let dragStartTime = 0;
-            let dragThreshold = 5; // pixels
-            let startPosition = { x: 0, y: 0 };
-            let hasMoved = false;
+            let touchStartTime = 0;
+            let touchMoved = false;
+            let dragThreshold = 8; // pixels - reduced for better responsiveness
+            let initialTouchPos = { x: 0, y: 0 };
+            let longPressTimer = null;
+            let dragStarted = false;
 
             // Check if MediaRecorder is supported
             if (!window.MediaRecorder) {
@@ -164,166 +166,220 @@
                     }
                 }
                 
-                // Fallback - try without specifying format
                 return '';
             }
 
-            // Reset drag state
-            function resetDragState() {
-                isDragging = false;
-                hasMoved = false;
-                micBtn.classList.remove('dragging');
-                micBtn.style.transition = 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
-                
-                // Clear any pending timeouts
-                if (clickTimeout) {
-                    clearTimeout(clickTimeout);
-                    clickTimeout = null;
-                }
-            }
+            // Mouse events (for desktop)
+            micBtn.addEventListener('mousedown', handlePointerStart);
+            document.addEventListener('mousemove', handlePointerMove);
+            document.addEventListener('mouseup', handlePointerEnd);
 
-            // Get position from event (mouse or touch)
-            function getEventPosition(e) {
-                if (e.touches && e.touches.length > 0) {
-                    return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                }
-                return { x: e.clientX, y: e.clientY };
-            }
+            // Touch events (for mobile) - with passive: false for preventDefault
+            micBtn.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
 
-            // Update button position
-            function updateButtonPosition(x, y) {
-                // Keep button within viewport bounds
-                const maxX = window.innerWidth - micBtn.offsetWidth;
-                const maxY = window.innerHeight - micBtn.offsetHeight;
-                
-                const constrainedX = Math.max(0, Math.min(x, maxX));
-                const constrainedY = Math.max(0, Math.min(y, maxY));
-                
-                micBtn.style.left = constrainedX + 'px';
-                micBtn.style.top = constrainedY + 'px';
-                micBtn.style.right = 'auto';
-                micBtn.style.bottom = 'auto';
-                micBtn.style.transition = 'none';
-            }
-
-            // Start drag (unified for mouse and touch)
-            function startDrag(e) {
+            function handlePointerStart(e) {
                 if (isRecording || micBtn.classList.contains('disabled')) return;
                 
-                e.preventDefault();
-                e.stopPropagation();
+                touchStartTime = Date.now();
+                touchMoved = false;
+                dragStarted = false;
                 
-                const position = getEventPosition(e);
-                dragStartTime = Date.now();
-                startPosition = { x: position.x, y: position.y };
-                hasMoved = false;
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                initialTouchPos = { x: clientX, y: clientY };
                 
                 const rect = micBtn.getBoundingClientRect();
-                dragOffset.x = position.x - rect.left;
-                dragOffset.y = position.y - rect.top;
+                dragOffset.x = clientX - rect.left;
+                dragOffset.y = clientY - rect.top;
                 
-                // Clear any pending click timeout
-                if (clickTimeout) {
-                    clearTimeout(clickTimeout);
-                    clickTimeout = null;
+                // Clear any existing long press timer
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
                 }
-                
-                // Set up drag state after a small delay to distinguish from clicks
-                setTimeout(() => {
-                    if (dragStartTime > 0) { // Only if we haven't already ended
-                        isDragging = true;
-                        micBtn.classList.add('dragging');
-                    }
-                }, 100);
-            }
-
-            // Handle drag movement (unified for mouse and touch)
-            function handleDragMove(e) {
-                if (!isDragging) return;
                 
                 e.preventDefault();
                 e.stopPropagation();
-                
-                const position = getEventPosition(e);
-                const deltaX = Math.abs(position.x - startPosition.x);
-                const deltaY = Math.abs(position.y - startPosition.y);
-                
-                // Check if we've moved enough to consider this a real drag
-                if (deltaX > dragThreshold || deltaY > dragThreshold) {
-                    hasMoved = true;
-                }
-                
-                const x = position.x - dragOffset.x;
-                const y = position.y - dragOffset.y;
-                
-                updateButtonPosition(x, y);
             }
 
-            // End drag (unified for mouse and touch)
-            function endDrag(e) {
-                const wasDragging = isDragging;
-                const didMove = hasMoved;
-                const dragDuration = Date.now() - dragStartTime;
+            function handleTouchStart(e) {
+                if (isRecording || micBtn.classList.contains('disabled')) return;
                 
-                dragStartTime = 0;
-                resetDragState();
+                touchStartTime = Date.now();
+                touchMoved = false;
+                dragStarted = false;
                 
-                // If we were dragging or moved significantly, prevent click
-                if (wasDragging && didMove) {
+                const touch = e.touches[0];
+                initialTouchPos = { x: touch.clientX, y: touch.clientY };
+                
+                const rect = micBtn.getBoundingClientRect();
+                dragOffset.x = touch.clientX - rect.left;
+                dragOffset.y = touch.clientY - rect.top;
+                
+                // Clear any existing long press timer
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            function handlePointerMove(e) {
+                if (isRecording || micBtn.classList.contains('disabled')) return;
+                
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                if (!clientX || !clientY) return;
+                
+                const deltaX = Math.abs(clientX - initialTouchPos.x);
+                const deltaY = Math.abs(clientY - initialTouchPos.y);
+                
+                if ((deltaX > dragThreshold || deltaY > dragThreshold) && !dragStarted) {
+                    dragStarted = true;
+                    touchMoved = true;
+                    startDragging();
+                }
+                
+                if (isDragging) {
+                    const x = clientX - dragOffset.x;
+                    const y = clientY - dragOffset.y;
+                    
+                    const maxX = window.innerWidth - micBtn.offsetWidth;
+                    const maxY = window.innerHeight - micBtn.offsetHeight;
+                    
+                    const constrainedX = Math.max(0, Math.min(x, maxX));
+                    const constrainedY = Math.max(0, Math.min(y, maxY));
+                    
+                    // Use transform for better performance during drag
+                    micBtn.style.transform = `translate3d(${constrainedX}px, ${constrainedY}px, 0)`;
+                    micBtn.style.left = 'auto';
+                    micBtn.style.top = 'auto';
+                    micBtn.style.right = 'auto';
+                    micBtn.style.bottom = 'auto';
+                }
+            }
+
+            function handleTouchMove(e) {
+                if (isRecording || micBtn.classList.contains('disabled')) return;
+                
+                const touch = e.touches[0];
+                const deltaX = Math.abs(touch.clientX - initialTouchPos.x);
+                const deltaY = Math.abs(touch.clientY - initialTouchPos.y);
+                
+                if ((deltaX > dragThreshold || deltaY > dragThreshold) && !dragStarted) {
+                    dragStarted = true;
+                    touchMoved = true;
+                    startDragging();
+                }
+                
+                if (isDragging) {
+                    const x = touch.clientX - dragOffset.x;
+                    const y = touch.clientY - dragOffset.y;
+                    
+                    const maxX = window.innerWidth - micBtn.offsetWidth;
+                    const maxY = window.innerHeight - micBtn.offsetHeight;
+                    
+                    const constrainedX = Math.max(0, Math.min(x, maxX));
+                    const constrainedY = Math.max(0, Math.min(y, maxY));
+                    
+                    // Use transform for better performance during drag
+                    micBtn.style.transform = `translate3d(${constrainedX}px, ${constrainedY}px, 0) scale(1.05)`;
+                    micBtn.style.left = 'auto';
+                    micBtn.style.top = 'auto';
+                    micBtn.style.right = 'auto';
+                    micBtn.style.bottom = 'auto';
+                }
+                
+                e.preventDefault();
+            }
+
+            function startDragging() {
+                isDragging = true;
+                micBtn.classList.add('dragging');
+                document.body.style.userSelect = 'none';
+            }
+
+            function stopDragging() {
+                if (isDragging) {
+                    isDragging = false;
+                    micBtn.classList.remove('dragging');
+                    document.body.style.userSelect = '';
+                    
+                    // Convert transform back to position
+                    const rect = micBtn.getBoundingClientRect();
+                    micBtn.style.left = rect.left + 'px';
+                    micBtn.style.top = rect.top + 'px';
+                    micBtn.style.right = 'auto';
+                    micBtn.style.bottom = 'auto';
+                    micBtn.style.transform = 'translate3d(0, 0, 0)';
+                }
+            }
+
+            function handlePointerEnd(e) {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                
+                if (isDragging) {
+                    stopDragging();
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
                 
-                // If it was a very short interaction without movement, treat as click
-                if (!didMove && dragDuration < 200) {
-                    // Allow click to proceed naturally
-                    return;
+                // Check if this was a tap/click (not a drag)
+                const touchDuration = Date.now() - touchStartTime;
+                if (!touchMoved && touchDuration < 500) {
+                    handleRecording();
                 }
-                
-                // Prevent click for anything else
-                e.preventDefault();
-                e.stopPropagation();
             }
 
-            // Mouse events
-            micBtn.addEventListener('mousedown', startDrag);
-            document.addEventListener('mousemove', handleDragMove);
-            document.addEventListener('mouseup', endDrag);
-
-            // Touch events with proper passive handling
-            micBtn.addEventListener('touchstart', startDrag, { passive: false });
-            document.addEventListener('touchmove', handleDragMove, { passive: false });
-            document.addEventListener('touchend', endDrag, { passive: false });
-
-            // Click handler for recording
-            micBtn.addEventListener('click', async (e) => {
-                // Prevent if disabled or recording
-                if (micBtn.classList.contains('disabled') || isRecording) {
+            function handleTouchEnd(e) {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                
+                if (isDragging) {
+                    stopDragging();
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
                 
-                // Prevent if we just finished dragging
-                if (hasMoved || isDragging) {
+                // Check if this was a tap (not a drag)
+                const touchDuration = Date.now() - touchStartTime;
+                if (!touchMoved && touchDuration < 500) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRecording();
+                }
+            }
+
+            // Fallback click handler for accessibility
+            micBtn.addEventListener('click', (e) => {
+                if (touchMoved || isDragging) {
                     e.preventDefault();
                     e.stopPropagation();
                     return;
                 }
                 
-                e.preventDefault();
-                e.stopPropagation();
-                
-                // Add small delay to ensure drag state is settled
-                clickTimeout = setTimeout(async () => {
-                    if (!isDragging && !hasMoved) {
-                        await handleRecording();
-                    }
-                }, 50);
+                // Only trigger if not already handled by touch
+                if (!('ontouchstart' in window)) {
+                    handleRecording();
+                }
             });
 
             async function handleRecording() {
+                if (isRecording || micBtn.classList.contains('disabled')) return;
+                
                 try {
                     isRecording = true;
                     micBtn.classList.add('recording');
@@ -339,11 +395,9 @@
                         }
                     });
                     
-                    // Get the best supported format
                     const mimeType = getSupportedAudioFormat();
                     console.log('Using audio format:', mimeType);
                     
-                    // Create MediaRecorder with proper options
                     const mediaRecorder = new MediaRecorder(stream, {
                         mimeType: mimeType || undefined,
                         audioBitsPerSecond: 128000
@@ -358,22 +412,19 @@
                     };
                     
                     mediaRecorder.onstop = async () => {
-                        // Clean up stream
                         stream.getTracks().forEach(track => track.stop());
                         
                         isRecording = false;
                         micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                         
                         if (audioChunks.length === 0) {
                             throw new Error('No audio data recorded');
                         }
                         
-                        // Create blob with the recorded format
                         const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
                         const blob = new Blob(audioChunks, { type: actualMimeType });
                         
-                        // Determine file extension based on mime type
                         let fileExtension = 'webm';
                         if (actualMimeType.includes('mp4')) {
                             fileExtension = 'mp4';
@@ -386,13 +437,12 @@
                         formData.append('mimeType', actualMimeType);
 
                         try {
-                            // Show processing state
                             micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
                             
+                            // Production backend service call
                             const response = await fetch('/voice-command', {
                                 method: 'POST',
                                 body: formData,
-                                // Add headers for better compatibility
                                 headers: {
                                     'Accept': 'application/json',
                                 }
@@ -404,8 +454,7 @@
 
                             const result = await response.json();
                             
-                            // Reset button
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                             
                             if (result.redirect_url) {
                                 const utterance = new SpeechSynthesisUtterance(result.speech_response);
@@ -418,10 +467,24 @@
                             } else {
                                 speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
                             }
+                            
                         } catch (fetchError) {
                             console.error('Voice command processing error:', fetchError);
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, there was an error processing your command."));
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
+                            
+                            let errorMessage = "Sorry, there was an error processing your command.";
+                            
+                            if (fetchError.message.includes('404')) {
+                                errorMessage = "Voice service is currently unavailable.";
+                            } else if (fetchError.message.includes('500')) {
+                                errorMessage = "Server error. Please try again later.";
+                            } else if (!navigator.onLine) {
+                                errorMessage = "Please check your internet connection.";
+                            }
+                            
+                            if ('speechSynthesis' in window) {
+                                speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
+                            }
                         }
                     };
 
@@ -430,12 +493,11 @@
                         stream.getTracks().forEach(track => track.stop());
                         isRecording = false;
                         micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                     };
 
                     mediaRecorder.start();
                     
-                    // Auto-stop after 3 seconds
                     setTimeout(() => {
                         if (mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
@@ -446,7 +508,7 @@
                     console.error('Voice Assistant Error:', error);
                     isRecording = false;
                     micBtn.classList.remove('recording');
-                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                     
                     let errorMessage = "Microphone error occurred.";
                     
@@ -465,7 +527,9 @@
                         micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
                     }
                     
-                    speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
+                    if ('speechSynthesis' in window) {
+                        speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
+                    }
                 }
             }
 
@@ -474,53 +538,49 @@
                 e.preventDefault();
             });
 
-            // Handle window resize
+            // Handle window resize - maintain position
             window.addEventListener('resize', () => {
-                const rect = micBtn.getBoundingClientRect();
-                const maxX = window.innerWidth - micBtn.offsetWidth;
-                const maxY = window.innerHeight - micBtn.offsetHeight;
-                
-                if (rect.left > maxX) {
-                    micBtn.style.left = maxX + 'px';
-                }
-                if (rect.top > maxY) {
-                    micBtn.style.top = maxY + 'px';
+                if (!isDragging) {
+                    const rect = micBtn.getBoundingClientRect();
+                    const maxX = window.innerWidth - micBtn.offsetWidth;
+                    const maxY = window.innerHeight - micBtn.offsetHeight;
+                    
+                    let needsUpdate = false;
+                    let newLeft = parseInt(micBtn.style.left) || rect.left;
+                    let newTop = parseInt(micBtn.style.top) || rect.top;
+                    
+                    if (newLeft > maxX) {
+                        newLeft = maxX;
+                        needsUpdate = true;
+                    }
+                    if (newTop > maxY) {
+                        newTop = maxY;
+                        needsUpdate = true;
+                    }
+                    
+                    if (needsUpdate) {
+                        micBtn.style.left = newLeft + 'px';
+                        micBtn.style.top = newTop + 'px';
+                        micBtn.style.right = 'auto';
+                        micBtn.style.bottom = 'auto';
+                    }
                 }
             });
 
-            // Clean up on page unload
-            window.addEventListener('beforeunload', () => {
-                resetDragState();
-                if (clickTimeout) {
-                    clearTimeout(clickTimeout);
-                }
-            });
-
-            // Handle visibility change (tab switching)
+            // Handle page visibility change to stop recording if page becomes hidden
             document.addEventListener('visibilitychange', () => {
-                if (document.hidden) {
-                    resetDragState();
+                if (document.hidden && isRecording) {
+                    // Stop recording if page becomes hidden
+                    const mediaRecorder = window.currentMediaRecorder;
+                    if (mediaRecorder && mediaRecorder.state === 'recording') {
+                        mediaRecorder.stop();
+                    }
                 }
             });
         }
 
         // Load the footer when page loads
         document.addEventListener('DOMContentLoaded', loadFooter);
-
-        // Alternative: Load footer via AJAX from external file
-        function loadFooterViaAJAX() {
-            fetch('/templates/footer.html')
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('footer-container').innerHTML = html;
-                    initializeVoiceAssistant();
-                })
-                .catch(error => {
-                    console.error('Error loading footer:', error);
-                    // Fallback to inline version
-                    loadFooter();
-                });
-        }
     </script>
 </body>
 </html>
