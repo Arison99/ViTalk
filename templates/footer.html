@@ -93,6 +93,7 @@
             let isDragging = false;
             let dragOffset = { x: 0, y: 0 };
             let isRecording = false;
+            const originalTooltipText = "Click to record • Drag to move"; // Store original tooltip
 
             // Dragging functionality
             micBtn.addEventListener('mousedown', (e) => {
@@ -180,9 +181,24 @@
             // Voice recording functionality (enhanced)
             micBtn.addEventListener('click', async (e) => {
                 // Prevent click if we just finished dragging
-                if (isDragging) return;
+                if (isDragging) {
+                    // Reset dragging state if it was a quick drag-and-click attempt
+                    isDragging = false; 
+                    micBtn.classList.remove('dragging');
+                    return;
+                }
                 
                 if (isRecording) return; // Prevent multiple recordings
+
+                // Check for MediaDevices and getUserMedia support
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    console.error("getUserMedia not supported on this browser.");
+                    const errorMsg = "Mic access not supported by browser.";
+                    speechSynthesis.speak(new SpeechSynthesisUtterance(errorMsg));
+                    micBtn.innerHTML = `🎤<div class="mic-tooltip">${errorMsg}</div>`;
+                    // alert(errorMsg); // Uncomment for direct debugging on mobile
+                    return;
+                }
                 
                 try {
                     isRecording = true;
@@ -274,8 +290,28 @@
                     console.error('Voice Assistant Error:', error);
                     isRecording = false;
                     micBtn.classList.remove('recording');
-                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                    speechSynthesis.speak(new SpeechSynthesisUtterance("Microphone access denied."));
+                    
+                    let userMessage = "Mic access denied.";
+                    if (error.name === 'NotFoundError') {
+                        userMessage = "No microphone found.";
+                    } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                        userMessage = "Permission for mic denied.";
+                    } else if (error.name === 'SecurityError') {
+                        userMessage = "Mic access denied (HTTPS needed?).";
+                    } else {
+                        userMessage = `Mic error: ${error.name}.`;
+                    }
+                    
+                    micBtn.innerHTML = `🎤<div class="mic-tooltip">${userMessage}</div>`;
+                    speechSynthesis.speak(new SpeechSynthesisUtterance(userMessage));
+                    // alert(userMessage); // Uncomment for direct debugging on mobile
+
+                    // Reset tooltip after a delay
+                    setTimeout(() => {
+                        if (!isRecording) { // Check again in case user retried quickly
+                           micBtn.innerHTML = `🎤<div class="mic-tooltip">${originalTooltipText}</div>`;
+                        }
+                    }, 5000);
                 }
             });
 
