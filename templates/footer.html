@@ -1,4 +1,4 @@
-    <!-- Include the draggable footer -->
+<!-- Include the draggable footer -->
     <div id="footer-container"></div>
 
     <script>
@@ -196,43 +196,68 @@
                     mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
                     
                     mediaRecorder.onstop = async () => {
-                        // Clean up
+                        // Clean up stream tracks
                         stream.getTracks().forEach(track => track.stop());
                         isRecording = false;
                         micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                        
-                        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+                        // Set to processing state immediately
+                        micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
+                
+                        const blob = new Blob(audioChunks, { type: 'audio/webm' }); // Server expects an audio file
                         const formData = new FormData();
-                        formData.append('audio', blob, 'command.webm');
+                        formData.append('audio', blob, 'command.webm'); // Filename can be anything, backend handles content
 
                         try {
-                            // Show processing state
-                            micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
-                            
                             const response = await fetch('/voice-command', {
                                 method: 'POST',
                                 body: formData
                             });
 
-                            const result = await response.json();
-                            
-                            // Reset button
+                            // Always reset button icon after fetch attempt, before further processing
                             micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                            
-                            if (result.redirect_url) {
-                                const utterance = new SpeechSynthesisUtterance(result.speech_response);
-                                speechSynthesis.speak(utterance);
-                                utterance.onend = () => {
-                                    window.location.href = result.redirect_url;
-                                };
-                            } else {
-                                speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
+
+                            if (!response.ok) { // Handle HTTP errors (4xx, 5xx)
+                                let errorMsg = "Sorry, an unknown error occurred while processing your command.";
+                                try {
+                                    const errorResult = await response.json();
+                                    // Use server's speech_response if available, otherwise error or a default
+                                    errorMsg = errorResult.speech_response || errorResult.message || errorResult.error || `Server error: ${response.status}`;
+                                    console.error('Voice command server error:', response.status, errorResult);
+                                } catch (e) {
+                                    // If parsing error JSON fails
+                                    console.error('Failed to parse error response from server. Status:', response.status, e);
+                                    errorMsg = `Server error: ${response.status}. Please try again.`;
+                                }
+                                speechSynthesis.speak(new SpeechSynthesisUtterance(errorMsg));
+                                return; // Exit early
                             }
-                        } catch (fetchError) {
-                            console.error('Voice command processing error:', fetchError);
+
+                            const result = await response.json(); // Assuming response.ok means we get valid JSON
+
+                            if (result.status === "success" && result.redirect_url) {
+                                const speechText = result.speech_response || "Redirecting...";
+                                const utterance = new SpeechSynthesisUtterance(speechText);
+                                speechSynthesis.speak(utterance);
+                                // Ensure speech completes or has started before redirecting
+                                if (result.speech_response) {
+                                     utterance.onend = () => { window.location.href = result.redirect_url; };
+                                } else { // If no speech_response (e.g., just "Redirecting..."), redirect sooner
+                                     // Add a small delay for the "Redirecting..." to be heard if desired
+                                     setTimeout(() => { window.location.href = result.redirect_url; }, speechText === "Redirecting..." ? 500 : 0);
+                                }
+                            } else if (result.speech_response) {
+                                // Handles no_match, recognition_error, busy, or other statuses with a speech_response
+                                speechSynthesis.speak(new SpeechSynthesisUtterance(result.speech_response));
+                            } else {
+                                // Fallback for unexpected successful responses without speech_response
+                                speechSynthesis.speak(new SpeechSynthesisUtterance("Command processed, but no specific feedback."));
+                                console.warn("Voice command result unhandled or missing speech_response:", result);
+                            }
+
+                        } catch (fetchError) { // Catches network errors or if fetch itself fails
+                            console.error('Voice command fetch/network error:', fetchError);
                             micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, there was an error processing your command."));
+                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, a network connection error occurred. Please check your connection and try again."));
                         }
                     };
 
