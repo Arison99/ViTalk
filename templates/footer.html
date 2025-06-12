@@ -1,4 +1,12 @@
-<!-- Include the draggable footer -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mic</title>
+</head>
+<body>
+    <!-- Include the draggable footer -->
     <div id="footer-container"></div>
 
     <script>
@@ -51,6 +59,12 @@
                         transition: none;
                     }
 
+                    #mic-button.disabled {
+                        background: #6b7280;
+                        cursor: not-allowed;
+                        opacity: 0.6;
+                    }
+
                     @keyframes pulse {
                         0%, 100% { transform: scale(1); }
                         50% { transform: scale(1.05); }
@@ -70,11 +84,16 @@
                         transform: translateY(10px);
                         transition: all 0.3s ease;
                         pointer-events: none;
+                        z-index: 10000;
                     }
 
                     #mic-button:hover .mic-tooltip {
                         opacity: 1;
                         transform: translateY(0);
+                    }
+
+                    .error-tooltip {
+                        background: rgba(239, 68, 68, 0.9) !important;
                     }
                 </style>
 
@@ -93,11 +112,46 @@
             let isDragging = false;
             let dragOffset = { x: 0, y: 0 };
             let isRecording = false;
-            const originalTooltipText = "Click to record • Drag to move"; // Store original tooltip
+            let clickTimeout = null;
+
+            // Check if MediaRecorder is supported
+            if (!window.MediaRecorder) {
+                micBtn.classList.add('disabled');
+                micBtn.querySelector('.mic-tooltip').textContent = 'Voice recording not supported';
+                micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
+                return;
+            }
+
+            // Get the best supported audio format
+            function getSupportedAudioFormat() {
+                const formats = [
+                    'audio/webm;codecs=opus',
+                    'audio/webm',
+                    'audio/mp4;codecs=aac',
+                    'audio/mp4',
+                    'audio/ogg;codecs=opus',
+                    'audio/ogg'
+                ];
+
+                for (const format of formats) {
+                    if (MediaRecorder.isTypeSupported(format)) {
+                        return format;
+                    }
+                }
+                
+                // Fallback - try without specifying format
+                return '';
+            }
 
             // Dragging functionality
             micBtn.addEventListener('mousedown', (e) => {
-                if (isRecording) return; // Don't drag while recording
+                if (isRecording || micBtn.classList.contains('disabled')) return;
+                
+                // Clear any pending click timeout
+                if (clickTimeout) {
+                    clearTimeout(clickTimeout);
+                    clickTimeout = null;
+                }
                 
                 isDragging = true;
                 micBtn.classList.add('dragging');
@@ -107,6 +161,7 @@
                 dragOffset.y = e.clientY - rect.top;
                 
                 e.preventDefault();
+                e.stopPropagation();
             });
 
             document.addEventListener('mousemove', (e) => {
@@ -128,16 +183,20 @@
                 micBtn.style.bottom = 'auto';
             });
 
-            document.addEventListener('mouseup', () => {
+            document.addEventListener('mouseup', (e) => {
                 if (isDragging) {
                     isDragging = false;
                     micBtn.classList.remove('dragging');
+                    
+                    // Prevent click event after drag
+                    e.preventDefault();
+                    e.stopPropagation();
                 }
             });
 
             // Touch support for mobile
             micBtn.addEventListener('touchstart', (e) => {
-                if (isRecording) return;
+                if (isRecording || micBtn.classList.contains('disabled')) return;
                 
                 isDragging = true;
                 micBtn.classList.add('dragging');
@@ -148,14 +207,10 @@
                 dragOffset.y = touch.clientY - rect.top;
                 
                 e.preventDefault();
-            });
+            }, { passive: false });
 
             document.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
-                
-                // e.preventDefault(); // Call preventDefault only if dragging is active and you intend to prevent scrolling.
-                                    // However, the warning suggests this is the problematic line.
-                                    // If you must call it, ensure the listener is not passive.
                 
                 const touch = e.touches[0];
                 const x = touch.clientX - dragOffset.x;
@@ -172,13 +227,8 @@
                 micBtn.style.right = 'auto';
                 micBtn.style.bottom = 'auto';
                 
-                // It's generally better to call preventDefault() only when necessary.
-                // If dragging the button should prevent page scrolling, call it here.
-                if (isDragging) { // Double check, though the outer 'if' already does.
-                    e.preventDefault(); 
-                }
-
-            }, { passive: false }); // Add this options object
+                e.preventDefault();
+            }, { passive: false });
 
             document.addEventListener('touchend', () => {
                 if (isDragging) {
@@ -187,103 +237,128 @@
                 }
             });
 
-            // Voice recording functionality (enhanced)
+            // Voice recording functionality (enhanced with proper format detection)
             micBtn.addEventListener('click', async (e) => {
                 // Prevent click if we just finished dragging
-                if (isDragging) {
-                    // Reset dragging state if it was a quick drag-and-click attempt
-                    isDragging = false; 
-                    micBtn.classList.remove('dragging');
-                    return;
-                }
+                if (isDragging) return;
                 
-                if (isRecording) return; // Prevent multiple recordings
+                // Prevent double-clicks
+                if (isRecording || micBtn.classList.contains('disabled')) return;
+                
+                // Add small delay to distinguish between drag and click
+                clickTimeout = setTimeout(async () => {
+                    await handleRecording();
+                }, 100);
+            });
 
-                // Check for MediaDevices and getUserMedia support
-                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                    console.error("getUserMedia not supported on this browser.");
-                    const errorMsg = "Mic access not supported by browser.";
-                    speechSynthesis.speak(new SpeechSynthesisUtterance(errorMsg));
-                    micBtn.innerHTML = `🎤<div class="mic-tooltip">${errorMsg}</div>`;
-                    // alert(errorMsg); // Uncomment for direct debugging on mobile
-                    return;
-                }
-                
+            async function handleRecording() {
                 try {
                     isRecording = true;
                     micBtn.classList.add('recording');
                     micBtn.innerHTML = '⏹️<div class="mic-tooltip">Recording... (3s)</div>';
                     
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                    const mediaRecorder = new MediaRecorder(stream);
+                    // Request microphone access with better error handling
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        audio: {
+                            echoCancellation: true,
+                            noiseSuppression: true,
+                            autoGainControl: true,
+                            sampleRate: 44100
+                        }
+                    });
+                    
+                    // Get the best supported format
+                    const mimeType = getSupportedAudioFormat();
+                    console.log('Using audio format:', mimeType);
+                    
+                    // Create MediaRecorder with proper options
+                    const mediaRecorder = new MediaRecorder(stream, {
+                        mimeType: mimeType || undefined,
+                        audioBitsPerSecond: 128000
+                    });
+                    
                     let audioChunks = [];
 
-                    mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data.size > 0) {
+                            audioChunks.push(event.data);
+                        }
+                    };
                     
                     mediaRecorder.onstop = async () => {
-                        // Clean up stream tracks
+                        // Clean up stream
+                        stream.getTracks().forEach(track => track.stop());
+                        
+                        isRecording = false;
+                        micBtn.classList.remove('recording');
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                        
+                        if (audioChunks.length === 0) {
+                            throw new Error('No audio data recorded');
+                        }
+                        
+                        // Create blob with the recorded format
+                        const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
+                        const blob = new Blob(audioChunks, { type: actualMimeType });
+                        
+                        // Determine file extension based on mime type
+                        let fileExtension = 'webm';
+                        if (actualMimeType.includes('mp4')) {
+                            fileExtension = 'mp4';
+                        } else if (actualMimeType.includes('ogg')) {
+                            fileExtension = 'ogg';
+                        }
+
+                        const formData = new FormData();
+                        formData.append('audio', blob, `command.${fileExtension}`);
+                        formData.append('mimeType', actualMimeType);
+
+                        try {
+                            // Show processing state
+                            micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
+                            
+                            const response = await fetch('/voice-command', {
+                                method: 'POST',
+                                body: formData,
+                                // Add headers for better compatibility
+                                headers: {
+                                    'Accept': 'application/json',
+                                }
+                            });
+
+                            if (!response.ok) {
+                                throw new Error(`Server error: ${response.status}`);
+                            }
+
+                            const result = await response.json();
+                            
+                            // Reset button
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                            
+                            if (result.redirect_url) {
+                                const utterance = new SpeechSynthesisUtterance(result.speech_response);
+                                speechSynthesis.speak(utterance);
+                                utterance.onend = () => {
+                                    window.location.href = result.redirect_url;
+                                };
+                            } else if (result.speech_response) {
+                                speechSynthesis.speak(new SpeechSynthesisUtterance(result.speech_response));
+                            } else {
+                                speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
+                            }
+                        } catch (fetchError) {
+                            console.error('Voice command processing error:', fetchError);
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, there was an error processing your command."));
+                        }
+                    };
+
+                    mediaRecorder.onerror = (event) => {
+                        console.error('MediaRecorder error:', event.error);
                         stream.getTracks().forEach(track => track.stop());
                         isRecording = false;
                         micBtn.classList.remove('recording');
-                        // Set to processing state immediately
-                        micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
-                
-                        const blob = new Blob(audioChunks, { type: 'audio/webm' }); // Server expects an audio file
-                        const formData = new FormData();
-                        formData.append('audio', blob, 'command.webm'); // Filename can be anything, backend handles content
-
-                        try {
-                            const response = await fetch('/voice-command', {
-                                method: 'POST',
-                                body: formData
-                            });
-
-                            // Always reset button icon after fetch attempt, before further processing
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-
-                            if (!response.ok) { // Handle HTTP errors (4xx, 5xx)
-                                let errorMsg = "Sorry, an unknown error occurred while processing your command.";
-                                try {
-                                    const errorResult = await response.json();
-                                    // Use server's speech_response if available, otherwise error or a default
-                                    errorMsg = errorResult.speech_response || errorResult.message || errorResult.error || `Server error: ${response.status}`;
-                                    console.error('Voice command server error:', response.status, errorResult);
-                                } catch (e) {
-                                    // If parsing error JSON fails
-                                    console.error('Failed to parse error response from server. Status:', response.status, e);
-                                    errorMsg = `Server error: ${response.status}. Please try again.`;
-                                }
-                                speechSynthesis.speak(new SpeechSynthesisUtterance(errorMsg));
-                                return; // Exit early
-                            }
-
-                            const result = await response.json(); // Assuming response.ok means we get valid JSON
-
-                            if (result.status === "success" && result.redirect_url) {
-                                const speechText = result.speech_response || "Redirecting...";
-                                const utterance = new SpeechSynthesisUtterance(speechText);
-                                speechSynthesis.speak(utterance);
-                                // Ensure speech completes or has started before redirecting
-                                if (result.speech_response) {
-                                     utterance.onend = () => { window.location.href = result.redirect_url; };
-                                } else { // If no speech_response (e.g., just "Redirecting..."), redirect sooner
-                                     // Add a small delay for the "Redirecting..." to be heard if desired
-                                     setTimeout(() => { window.location.href = result.redirect_url; }, speechText === "Redirecting..." ? 500 : 0);
-                                }
-                            } else if (result.speech_response) {
-                                // Handles no_match, recognition_error, busy, or other statuses with a speech_response
-                                speechSynthesis.speak(new SpeechSynthesisUtterance(result.speech_response));
-                            } else {
-                                // Fallback for unexpected successful responses without speech_response
-                                speechSynthesis.speak(new SpeechSynthesisUtterance("Command processed, but no specific feedback."));
-                                console.warn("Voice command result unhandled or missing speech_response:", result);
-                            }
-
-                        } catch (fetchError) { // Catches network errors or if fetch itself fails
-                            console.error('Voice command fetch/network error:', fetchError);
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, a network connection error occurred. Please check your connection and try again."));
-                        }
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
                     };
 
                     mediaRecorder.start();
@@ -299,30 +374,28 @@
                     console.error('Voice Assistant Error:', error);
                     isRecording = false;
                     micBtn.classList.remove('recording');
+                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
                     
-                    let userMessage = "Mic access denied.";
-                    if (error.name === 'NotFoundError') {
-                        userMessage = "No microphone found.";
-                    } else if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-                        userMessage = "Permission for mic denied.";
-                    } else if (error.name === 'SecurityError') {
-                        userMessage = "Mic access denied (HTTPS needed?).";
-                    } else {
-                        userMessage = `Mic error: ${error.name}.`;
+                    let errorMessage = "Microphone error occurred.";
+                    
+                    if (error.name === 'NotAllowedError') {
+                        errorMessage = "Please allow microphone access and try again.";
+                        micBtn.querySelector('.mic-tooltip').textContent = 'Microphone access denied';
+                        micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
+                    } else if (error.name === 'NotFoundError') {
+                        errorMessage = "No microphone found.";
+                        micBtn.querySelector('.mic-tooltip').textContent = 'No microphone found';
+                        micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
+                    } else if (error.name === 'NotSupportedError') {
+                        errorMessage = "Audio recording not supported in this browser.";
+                        micBtn.classList.add('disabled');
+                        micBtn.querySelector('.mic-tooltip').textContent = 'Recording not supported';
+                        micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
                     }
                     
-                    micBtn.innerHTML = `🎤<div class="mic-tooltip">${userMessage}</div>`;
-                    speechSynthesis.speak(new SpeechSynthesisUtterance(userMessage));
-                    // alert(userMessage); // Uncomment for direct debugging on mobile
-
-                    // Reset tooltip after a delay
-                    setTimeout(() => {
-                        if (!isRecording) { // Check again in case user retried quickly
-                           micBtn.innerHTML = `🎤<div class="mic-tooltip">${originalTooltipText}</div>`;
-                        }
-                    }, 5000);
+                    speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
                 }
-            });
+            }
 
             // Prevent context menu on right-click
             micBtn.addEventListener('contextmenu', (e) => {
@@ -362,3 +435,5 @@
                 });
         }
     </script>
+</body>
+</html>
