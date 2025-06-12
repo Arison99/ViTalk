@@ -379,24 +379,24 @@
                         try {
                             micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
                             
-                            // For demo purposes - replace with your actual endpoint
-                            console.log('Would send audio to server:', {
-                                size: blob.size,
-                                type: actualMimeType
-                            });
+                            // // For demo purposes - replace with your actual endpoint
+                            // console.log('Would send audio to server:', {
+                            //     size: blob.size,
+                            //     type: actualMimeType
+                            // });
                             
-                            // Simulate server response
-                            setTimeout(() => {
-                                micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
+                            // // Simulate server response
+                            // setTimeout(() => {
+                            //     micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                                 
-                                // Simulate speech response
-                                if ('speechSynthesis' in window) {
-                                    const utterance = new SpeechSynthesisUtterance("Recording received successfully!");
-                                    speechSynthesis.speak(utterance);
-                                }
-                            }, 1000);
+                            //     // Simulate speech response
+                            //     if ('speechSynthesis' in window) {
+                            //         const utterance = new SpeechSynthesisUtterance("Recording received successfully!");
+                            //         speechSynthesis.speak(utterance);
+                            //     }
+                            // }, 1000);
                             
-                            /*
+                            
                             // Uncomment for actual server integration
                             const response = await fetch('/voice-command', {
                                 method: 'POST',
@@ -425,7 +425,7 @@
                             } else {
                                 speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
                             }
-                            */
+                            
                             
                         } catch (fetchError) {
                             console.error('Voice command processing error:', fetchError);
