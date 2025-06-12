@@ -4,3 +4,4 @@ PyAudio
 pyttsx3
 SpeechRecognition 
 flask_cors
+gunicorn
