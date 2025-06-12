@@ -35,6 +35,9 @@
                         display: flex;
                         align-items: center;
                         justify-content: center;
+                        /* Touch-specific improvements */
+                        -webkit-tap-highlight-color: transparent;
+                        touch-action: none;
                     }
 
                     #mic-button:hover {
@@ -95,11 +98,20 @@
                     .error-tooltip {
                         background: rgba(239, 68, 68, 0.9) !important;
                     }
+
+                    /* Mobile-specific styles */
+                    @media (max-width: 768px) {
+                        .mic-tooltip {
+                            font-size: 10px;
+                            padding: 6px 8px;
+                            bottom: 65px;
+                        }
+                    }
                 </style>
 
                 <button id="mic-button" title="Voice Assistant - Drag me around!">
                     🎤
-                    <div class="mic-tooltip">Click to record • Drag to move</div>
+                    <div class="mic-tooltip">Tap to record • Drag to move</div>
                 </button>
             `;
             
@@ -112,7 +124,10 @@
             let isDragging = false;
             let dragOffset = { x: 0, y: 0 };
             let isRecording = false;
-            let clickTimeout = null;
+            let touchStartTime = 0;
+            let touchMoved = false;
+            let dragThreshold = 10; // pixels
+            let initialTouchPos = { x: 0, y: 0 };
 
             // Check if MediaRecorder is supported
             if (!window.MediaRecorder) {
@@ -139,119 +154,172 @@
                     }
                 }
                 
-                // Fallback - try without specifying format
                 return '';
             }
 
-            // Dragging functionality
-            micBtn.addEventListener('mousedown', (e) => {
+            // Mouse events (for desktop)
+            micBtn.addEventListener('mousedown', handlePointerStart);
+            document.addEventListener('mousemove', handlePointerMove);
+            document.addEventListener('mouseup', handlePointerEnd);
+
+            // Touch events (for mobile) - with passive: false for preventDefault
+            micBtn.addEventListener('touchstart', handleTouchStart, { passive: false });
+            document.addEventListener('touchmove', handleTouchMove, { passive: false });
+            document.addEventListener('touchend', handleTouchEnd, { passive: false });
+
+            function handlePointerStart(e) {
                 if (isRecording || micBtn.classList.contains('disabled')) return;
                 
-                // Clear any pending click timeout
-                if (clickTimeout) {
-                    clearTimeout(clickTimeout);
-                    clickTimeout = null;
-                }
+                touchStartTime = Date.now();
+                touchMoved = false;
                 
-                isDragging = true;
-                micBtn.classList.add('dragging');
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                initialTouchPos = { x: clientX, y: clientY };
                 
                 const rect = micBtn.getBoundingClientRect();
-                dragOffset.x = e.clientX - rect.left;
-                dragOffset.y = e.clientY - rect.top;
+                dragOffset.x = clientX - rect.left;
+                dragOffset.y = clientY - rect.top;
                 
                 e.preventDefault();
                 e.stopPropagation();
-            });
+            }
 
-            document.addEventListener('mousemove', (e) => {
-                if (!isDragging) return;
-                
-                const x = e.clientX - dragOffset.x;
-                const y = e.clientY - dragOffset.y;
-                
-                // Keep button within viewport bounds
-                const maxX = window.innerWidth - micBtn.offsetWidth;
-                const maxY = window.innerHeight - micBtn.offsetHeight;
-                
-                const constrainedX = Math.max(0, Math.min(x, maxX));
-                const constrainedY = Math.max(0, Math.min(y, maxY));
-                
-                micBtn.style.left = constrainedX + 'px';
-                micBtn.style.top = constrainedY + 'px';
-                micBtn.style.right = 'auto';
-                micBtn.style.bottom = 'auto';
-            });
-
-            document.addEventListener('mouseup', (e) => {
-                if (isDragging) {
-                    isDragging = false;
-                    micBtn.classList.remove('dragging');
-                    
-                    // Prevent click event after drag
-                    e.preventDefault();
-                    e.stopPropagation();
-                }
-            });
-
-            // Touch support for mobile
-            micBtn.addEventListener('touchstart', (e) => {
+            function handleTouchStart(e) {
                 if (isRecording || micBtn.classList.contains('disabled')) return;
                 
-                isDragging = true;
-                micBtn.classList.add('dragging');
+                touchStartTime = Date.now();
+                touchMoved = false;
                 
                 const touch = e.touches[0];
+                initialTouchPos = { x: touch.clientX, y: touch.clientY };
+                
                 const rect = micBtn.getBoundingClientRect();
                 dragOffset.x = touch.clientX - rect.left;
                 dragOffset.y = touch.clientY - rect.top;
                 
                 e.preventDefault();
-            }, { passive: false });
+                e.stopPropagation();
+            }
 
-            document.addEventListener('touchmove', (e) => {
-                if (!isDragging) return;
+            function handlePointerMove(e) {
+                if (isRecording || micBtn.classList.contains('disabled')) return;
+                
+                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                
+                if (!clientX || !clientY) return;
+                
+                const deltaX = Math.abs(clientX - initialTouchPos.x);
+                const deltaY = Math.abs(clientY - initialTouchPos.y);
+                
+                if (deltaX > dragThreshold || deltaY > dragThreshold) {
+                    if (!isDragging) {
+                        isDragging = true;
+                        micBtn.classList.add('dragging');
+                        touchMoved = true;
+                    }
+                    
+                    const x = clientX - dragOffset.x;
+                    const y = clientY - dragOffset.y;
+                    
+                    const maxX = window.innerWidth - micBtn.offsetWidth;
+                    const maxY = window.innerHeight - micBtn.offsetHeight;
+                    
+                    const constrainedX = Math.max(0, Math.min(x, maxX));
+                    const constrainedY = Math.max(0, Math.min(y, maxY));
+                    
+                    micBtn.style.left = constrainedX + 'px';
+                    micBtn.style.top = constrainedY + 'px';
+                    micBtn.style.right = 'auto';
+                    micBtn.style.bottom = 'auto';
+                }
+            }
+
+            function handleTouchMove(e) {
+                if (isRecording || micBtn.classList.contains('disabled')) return;
                 
                 const touch = e.touches[0];
-                const x = touch.clientX - dragOffset.x;
-                const y = touch.clientY - dragOffset.y;
+                const deltaX = Math.abs(touch.clientX - initialTouchPos.x);
+                const deltaY = Math.abs(touch.clientY - initialTouchPos.y);
                 
-                const maxX = window.innerWidth - micBtn.offsetWidth;
-                const maxY = window.innerHeight - micBtn.offsetHeight;
-                
-                const constrainedX = Math.max(0, Math.min(x, maxX));
-                const constrainedY = Math.max(0, Math.min(y, maxY));
-                
-                micBtn.style.left = constrainedX + 'px';
-                micBtn.style.top = constrainedY + 'px';
-                micBtn.style.right = 'auto';
-                micBtn.style.bottom = 'auto';
+                if (deltaX > dragThreshold || deltaY > dragThreshold) {
+                    if (!isDragging) {
+                        isDragging = true;
+                        micBtn.classList.add('dragging');
+                        touchMoved = true;
+                    }
+                    
+                    const x = touch.clientX - dragOffset.x;
+                    const y = touch.clientY - dragOffset.y;
+                    
+                    const maxX = window.innerWidth - micBtn.offsetWidth;
+                    const maxY = window.innerHeight - micBtn.offsetHeight;
+                    
+                    const constrainedX = Math.max(0, Math.min(x, maxX));
+                    const constrainedY = Math.max(0, Math.min(y, maxY));
+                    
+                    micBtn.style.left = constrainedX + 'px';
+                    micBtn.style.top = constrainedY + 'px';
+                    micBtn.style.right = 'auto';
+                    micBtn.style.bottom = 'auto';
+                }
                 
                 e.preventDefault();
-            }, { passive: false });
+            }
 
-            document.addEventListener('touchend', () => {
+            function handlePointerEnd(e) {
                 if (isDragging) {
                     isDragging = false;
                     micBtn.classList.remove('dragging');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // Check if this was a tap/click (not a drag)
+                const touchDuration = Date.now() - touchStartTime;
+                if (!touchMoved && touchDuration < 500) {
+                    handleRecording();
+                }
+            }
+
+            function handleTouchEnd(e) {
+                if (isDragging) {
+                    isDragging = false;
+                    micBtn.classList.remove('dragging');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // Check if this was a tap (not a drag)
+                const touchDuration = Date.now() - touchStartTime;
+                if (!touchMoved && touchDuration < 500) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleRecording();
+                }
+            }
+
+            // Fallback click handler for accessibility
+            micBtn.addEventListener('click', (e) => {
+                if (touchMoved || isDragging) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+                
+                // Only trigger if not already handled by touch
+                if (!('ontouchstart' in window)) {
+                    handleRecording();
                 }
             });
 
-            // Voice recording functionality (enhanced with proper format detection)
-            micBtn.addEventListener('click', async (e) => {
-                // Prevent click if we just finished dragging
-                if (isDragging) return;
-                
-                // Prevent double-clicks
+            async function handleRecording() {
                 if (isRecording || micBtn.classList.contains('disabled')) return;
                 
-                // Add small delay to distinguish between drag and click
-                clickTimeout = setTimeout(async () => {
-                    await handleRecording();
-                }, 100);
-            });
-
-            async function handleRecording() {
                 try {
                     isRecording = true;
                     micBtn.classList.add('recording');
@@ -267,11 +335,9 @@
                         }
                     });
                     
-                    // Get the best supported format
                     const mimeType = getSupportedAudioFormat();
                     console.log('Using audio format:', mimeType);
                     
-                    // Create MediaRecorder with proper options
                     const mediaRecorder = new MediaRecorder(stream, {
                         mimeType: mimeType || undefined,
                         audioBitsPerSecond: 128000
@@ -286,22 +352,19 @@
                     };
                     
                     mediaRecorder.onstop = async () => {
-                        // Clean up stream
                         stream.getTracks().forEach(track => track.stop());
                         
                         isRecording = false;
                         micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                         
                         if (audioChunks.length === 0) {
                             throw new Error('No audio data recorded');
                         }
                         
-                        // Create blob with the recorded format
                         const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
                         const blob = new Blob(audioChunks, { type: actualMimeType });
                         
-                        // Determine file extension based on mime type
                         let fileExtension = 'webm';
                         if (actualMimeType.includes('mp4')) {
                             fileExtension = 'mp4';
@@ -314,13 +377,30 @@
                         formData.append('mimeType', actualMimeType);
 
                         try {
-                            // Show processing state
                             micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
                             
+                            // For demo purposes - replace with your actual endpoint
+                            console.log('Would send audio to server:', {
+                                size: blob.size,
+                                type: actualMimeType
+                            });
+                            
+                            // Simulate server response
+                            setTimeout(() => {
+                                micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
+                                
+                                // Simulate speech response
+                                if ('speechSynthesis' in window) {
+                                    const utterance = new SpeechSynthesisUtterance("Recording received successfully!");
+                                    speechSynthesis.speak(utterance);
+                                }
+                            }, 1000);
+                            
+                            /*
+                            // Uncomment for actual server integration
                             const response = await fetch('/voice-command', {
                                 method: 'POST',
                                 body: formData,
-                                // Add headers for better compatibility
                                 headers: {
                                     'Accept': 'application/json',
                                 }
@@ -332,8 +412,7 @@
 
                             const result = await response.json();
                             
-                            // Reset button
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                             
                             if (result.redirect_url) {
                                 const utterance = new SpeechSynthesisUtterance(result.speech_response);
@@ -346,10 +425,14 @@
                             } else {
                                 speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
                             }
+                            */
+                            
                         } catch (fetchError) {
                             console.error('Voice command processing error:', fetchError);
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
-                            speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, there was an error processing your command."));
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
+                            if ('speechSynthesis' in window) {
+                                speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, there was an error processing your command."));
+                            }
                         }
                     };
 
@@ -358,12 +441,11 @@
                         stream.getTracks().forEach(track => track.stop());
                         isRecording = false;
                         micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                     };
 
                     mediaRecorder.start();
                     
-                    // Auto-stop after 3 seconds
                     setTimeout(() => {
                         if (mediaRecorder.state === 'recording') {
                             mediaRecorder.stop();
@@ -374,7 +456,7 @@
                     console.error('Voice Assistant Error:', error);
                     isRecording = false;
                     micBtn.classList.remove('recording');
-                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Click to record • Drag to move</div>';
+                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                     
                     let errorMessage = "Microphone error occurred.";
                     
@@ -393,7 +475,9 @@
                         micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
                     }
                     
-                    speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
+                    if ('speechSynthesis' in window) {
+                        speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
+                    }
                 }
             }
 
@@ -419,21 +503,6 @@
 
         // Load the footer when page loads
         document.addEventListener('DOMContentLoaded', loadFooter);
-
-        // Alternative: Load footer via AJAX from external file
-        function loadFooterViaAJAX() {
-            fetch('/templates/footer.html')
-                .then(response => response.text())
-                .then(html => {
-                    document.getElementById('footer-container').innerHTML = html;
-                    initializeVoiceAssistant();
-                })
-                .catch(error => {
-                    console.error('Error loading footer:', error);
-                    // Fallback to inline version
-                    loadFooter();
-                });
-        }
     </script>
 </body>
 </html>
