@@ -3,7 +3,7 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 app:app"
+startCommand = "python -c \"import os; port = os.environ.get('PORT', '5000'); __import__('gunicorn').run_app('app:app', host='0.0.0.0', port=int(port), workers=2, threads=4)\""
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
