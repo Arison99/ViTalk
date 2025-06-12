@@ -39,4 +39,4 @@ COPY . .
 RUN chmod +x start.py
 
 # Default command (will be overridden by Railway)
-CMD gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 app:app
+CMD ["python", "./start.py"]
