@@ -153,6 +153,10 @@
             document.addEventListener('touchmove', (e) => {
                 if (!isDragging) return;
                 
+                // e.preventDefault(); // Call preventDefault only if dragging is active and you intend to prevent scrolling.
+                                    // However, the warning suggests this is the problematic line.
+                                    // If you must call it, ensure the listener is not passive.
+                
                 const touch = e.touches[0];
                 const x = touch.clientX - dragOffset.x;
                 const y = touch.clientY - dragOffset.y;
@@ -168,8 +172,13 @@
                 micBtn.style.right = 'auto';
                 micBtn.style.bottom = 'auto';
                 
-                e.preventDefault();
-            });
+                // It's generally better to call preventDefault() only when necessary.
+                // If dragging the button should prevent page scrolling, call it here.
+                if (isDragging) { // Double check, though the outer 'if' already does.
+                    e.preventDefault(); 
+                }
+
+            }, { passive: false }); // Add this options object
 
             document.addEventListener('touchend', () => {
                 if (isDragging) {
