@@ -24,6 +24,7 @@ RUN mkdir -p /usr/share/alsa/ && \
 ENV PYTHONUNBUFFERED=1
 ENV AUDIODEV=null
 ENV ESPEAK_DATA_PATH=/usr/lib/x86_64-linux-gnu/espeak-ng-data
+ENV PORT=5000
 
 WORKDIR /app
 
@@ -38,4 +39,4 @@ COPY . .
 RUN chmod +x start.py
 
 # Default command (will be overridden by Railway)
-CMD gunicorn --bind "0.0.0.0:${PORT:-5000}" --workers 2 --threads 4 app:app
+CMD gunicorn --bind 0.0.0.0:$PORT --workers 2 --threads 4 app:app
