@@ -14,27 +14,34 @@ class EnhancedVoiceRouter:
         "tv_shows": {
             "keywords": ["search show", "tv shows", "television", "show search", "find show", "tv series"],
             "url": "/tvmaze/",
-            "response": "Opening TV show search.",
+            "response": "Navigating TV show search.",
             "confidence_threshold": 0.6
         },
         "episode_details": {
             "keywords": ["episode details", "episode info", "show details", "episode data", "show episodes"],
-            "url": "/tvmaze/show/<show_id>",
-            "response": "Here are the episode details.",
+            "url": "/tvmaze/",
+            "response": "This feature will be added soon, navigating to TV show search.",
             "confidence_threshold": 0.6
         },
         "radio": {
             "keywords": ["radio", "radio station", "music", "audio", "listen radio", "tune radio"],
             "url": "/radio/",
-            "response": "Tuning into radio section.",
+            "response": "Navigating to Radio Browser.Search and stream any radio station globally .",
             "confidence_threshold": 0.7
         },
         "satellite": {
             "keywords": ["satellite", "satellites", "satellite data", "space data", "orbital data"],
             "url": "/satellites/",
-            "response": "Displaying satellite data.",
+            "response": "navigating to SatSearch, use this web tool to search for satellite orbits and more.",
             "confidence_threshold": 0.7
-        }
+        },
+        "home": {
+    "keywords": ["home", "homepage", "start", "main page", "go back", "landing page", "dashboard", "initial screen","index"],
+            "url": "/",
+            "response": "Returning to the home page of ViTalk. We are a web-based voice assistant that can help you with navigating around ViTalk.",
+            "confidence_threshold": 0.7
+}
+
     }
 
     def __init__(self, debug_mode: bool = True): # Removed listening_timeout
@@ -72,7 +79,20 @@ class EnhancedVoiceRouter:
             'find me': 'find',
             'get me': 'get',
             'open up': 'open',
-            'pull up': 'show'
+            'pull up': 'show',
+            "pull up": "show",
+            "show me": "show",
+            "display": "show",
+            "find me": "find",
+            "look for": "find",
+            "get me": "get",
+            "bring me": "get",
+            "open up": "open",
+            "go to": "open",
+            "take me to": "open",
+            "head to": "open",
+            "navigate to": "open"
+
         }
         for old, new in replacements.items():
             text = text.replace(old, new)
