@@ -13,42 +13,29 @@ RUN apt-get update && apt-get install -y \
     alsa-utils \
     espeak \
     espeak-ng \
-    jackd2 \
-    libjack-jackd2-0 \
     && rm -rf /var/lib/apt/lists/*
 
-# Configure jackd to run without realtime privileges
-RUN echo "JACK_NO_AUDIO_RESERVATION=1" >> /etc/environment \
-    && echo "JACK_NO_START_SERVER=1" >> /etc/environment
+# Configure audio
+RUN mkdir -p /usr/share/alsa/ && \
+    echo 'pcm.!default { type null }' > /usr/share/alsa/alsa.conf && \
+    echo 'ctl.!default { type null }' >> /usr/share/alsa/alsa.conf
 
-# Set up ALSA and JACK configuration
-COPY alsa-config.conf /usr/share/alsa/alsa.conf
-ENV AUDIODEV=null
-ENV JACK_NO_AUDIO_RESERVATION=1
-ENV JACK_NO_START_SERVER=1
-ENV ESPEAK_DATA_PATH=/usr/lib/x86_64-linux-gnu/espeak-ng-data
-
-# Set environment variables for audio
+# Set environment variables
 ENV PYTHONUNBUFFERED=1
 ENV AUDIODEV=null
+ENV ESPEAK_DATA_PATH=/usr/lib/x86_64-linux-gnu/espeak-ng-data
 
 WORKDIR /app
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
-# Copy the rest of the application
+# Copy the application
 COPY . .
-
-# Expose the port your Flask app runs on
-EXPOSE 5000
 
 # Make start script executable
 RUN chmod +x start.py
 
-# Install gunicorn
-RUN pip install gunicorn
-
-# Command to run the application with gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "start:app"]
+# Default command (will be overridden by Railway)
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "2", "--threads", "4", "app:app"]
