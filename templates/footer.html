@@ -2,507 +2,400 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mic - Production Ready</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mobile-Optimized Draggable Voice Assistant</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            -webkit-text-size-adjust: 100%;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .demo-content {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 120px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        
+        @media (min-width: 768px) {
+            .demo-content {
+                padding: 40px;
+                margin-bottom: 100px;
+            }
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        @media (min-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+        }
+        
+        .demo-text {
+            line-height: 1.6;
+            color: #666;
+            max-width: 800px;
+            margin: 0 auto;
+            font-size: 0.9rem;
+        }
+        
+        @media (min-width: 768px) {
+            .demo-text {
+                font-size: 1rem;
+            }
+        }
+
+        #mic-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 9999;
+            background: linear-gradient(135deg, rgb(92, 37, 193), rgb(147, 51, 234));
+            border: none;
+            border-radius: 50%;
+            color: white;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(92, 37, 193, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            touch-action: none;
+            font-size: 28px;
+            width: 70px;
+            height: 70px;
+            padding: 20px;
+        }
+
+        @media (min-width: 768px) {
+            #mic-button {
+                font-size: 24px;
+                width: 60px;
+                height: 60px;
+                padding: 18px;
+            }
+        }
+
+        @media (max-width: 767px) {
+            #mic-button {
+                bottom: 30px;
+                right: 20px;
+                box-shadow: 0 8px 25px rgba(92, 37, 193, 0.5);
+            }
+        }
+
+        #mic-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 25px rgba(92, 37, 193, 0.6);
+            background: linear-gradient(135deg, rgb(107, 52, 208), rgb(162, 66, 249));
+        }
+
+        #mic-button:active {
+            transform: scale(0.95);
+        }
+
+        #mic-button.recording {
+            background: linear-gradient(135deg, #ef4444, #dc2626);
+            animation: pulse 1s infinite;
+        }
+
+        #mic-button.dragging {
+            transform: scale(1.15);
+            transition: none;
+            box-shadow: 0 12px 30px rgba(92, 37, 193, 0.7);
+            z-index: 10000;
+        }
+
+        #mic-button.processing {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .mic-tooltip {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 14px;
+            white-space: nowrap;
+            opacity: 0;
+            transform: translateY(10px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 200px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        @media (min-width: 768px) {
+            .mic-tooltip {
+                bottom: 70px;
+                padding: 8px 12px;
+                font-size: 12px;
+            }
+        }
+
+        #mic-button:hover .mic-tooltip,
+        #mic-button.show-tooltip .mic-tooltip {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        @media (max-width: 767px) {
+            .mic-tooltip {
+                font-size: 13px;
+                padding: 8px 12px;
+                right: -10px;
+            }
+        }
+
+        .no-select {
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* Performance optimization for mobile */
+        @media (max-width: 767px) {
+            * {
+                -webkit-transform: translateZ(0);
+                transform: translateZ(0);
+            }
+        }
+    </style>
 </head>
 <body>
-    <!-- Include the draggable footer -->
-    <div id="footer-container"></div>
+
+    <div class="demo-content">
+        <h1>Mobile Voice Assistant Demo</h1>
+        <div class="demo-text">
+            <p>This is a demonstration of a mobile-optimized draggable voice assistant. The microphone button in the bottom-right corner can be:</p>
+            <ul>
+                <li><strong>Tapped</strong> to start voice recording</li>
+                <li><strong>Dragged</strong> to reposition anywhere on screen</li>
+                <li><strong>Long-pressed</strong> for extended recording</li>
+            </ul>
+            <p>The assistant includes haptic feedback on supported devices and is optimized for touch interactions.</p>
+        </div>
+    </div>
+
+    <button id="mic-button" title="Voice Assistant - Drag me around!">
+        🎤
+        <div class="mic-tooltip">Tap to record • Drag to move</div>
+    </button>
 
     <script>
-        // Load footer template via AJAX (simulated with direct insertion for demo)
-        function loadFooter() {
-            const footerHTML = `
-                <!-- templates/footer.html -->
-                <style>
-                    #mic-button {
-                        position: fixed;
-                        bottom: 20px;
-                        right: 20px;
-                        z-index: 9999;
-                        background: linear-gradient(135deg, rgb(92, 37, 193), rgb(147, 51, 234));
-                        border: none;
-                        border-radius: 50%;
-                        padding: 18px;
-                        color: white;
-                        font-size: 24px;
-                        cursor: grab;
-                        box-shadow: 0 6px 20px rgba(92, 37, 193, 0.4);
-                        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                        user-select: none;
-                        width: 60px;
-                        height: 60px;
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        /* Touch-specific improvements */
-                        -webkit-tap-highlight-color: transparent;
-                        touch-action: none;
-                        /* Fix sticky behavior */
-                        transform: translate3d(0, 0, 0);
-                        will-change: transform;
-                    }
-
-                    #mic-button:hover:not(.recording):not(.dragging) {
-                        transform: scale(1.1) translate3d(0, 0, 0);
-                        box-shadow: 0 8px 25px rgba(92, 37, 193, 0.6);
-                        background: linear-gradient(135deg, rgb(107, 52, 208), rgb(162, 66, 249));
-                    }
-
-                    #mic-button:active {
-                        cursor: grabbing;
-                    }
-
-                    #mic-button.recording {
-                        background: linear-gradient(135deg, #ef4444, #dc2626);
-                        animation: pulse 1s infinite;
-                    }
-
-                    #mic-button.dragging {
-                        cursor: grabbing;
-                        transform: scale(1.05) translate3d(0, 0, 0);
-                        transition: none;
-                        box-shadow: 0 10px 30px rgba(92, 37, 193, 0.8);
-                    }
-
-                    #mic-button.disabled {
-                        background: #6b7280;
-                        cursor: not-allowed;
-                        opacity: 0.6;
-                    }
-
-                    @keyframes pulse {
-                        0%, 100% { transform: scale(1) translate3d(0, 0, 0); }
-                        50% { transform: scale(1.05) translate3d(0, 0, 0); }
-                    }
-
-                    .mic-tooltip {
-                        position: absolute;
-                        bottom: 70px;
-                        right: 0;
-                        background: rgba(0, 0, 0, 0.8);
-                        color: white;
-                        padding: 8px 12px;
-                        border-radius: 6px;
-                        font-size: 12px;
-                        white-space: nowrap;
-                        opacity: 0;
-                        transform: translateY(10px);
-                        transition: all 0.3s ease;
-                        pointer-events: none;
-                        z-index: 10000;
-                    }
-
-                    #mic-button:hover .mic-tooltip:not(.error-tooltip) {
-                        opacity: 1;
-                        transform: translateY(0);
-                    }
-
-                    .error-tooltip {
-                        background: rgba(239, 68, 68, 0.9) !important;
-                        opacity: 1 !important;
-                        transform: translateY(0) !important;
-                    }
-
-                    /* Mobile-specific styles */
-                    @media (max-width: 768px) {
-                        .mic-tooltip {
-                            font-size: 10px;
-                            padding: 6px 8px;
-                            bottom: 65px;
-                        }
-                    }
-
-                    /* Smooth position transitions when not dragging */
-                    #mic-button:not(.dragging) {
-                        transition: left 0.3s ease, top 0.3s ease, right 0.3s ease, bottom 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-                    }
-                </style>
-
-                <button id="mic-button" title="Voice Assistant - Drag me around!">
-                    🎤
-                    <div class="mic-tooltip">Tap to record • Drag to move</div>
-                </button>
-            `;
-            
-            document.getElementById('footer-container').innerHTML = footerHTML;
-            initializeVoiceAssistant();
-        }
+        // Detect if device is mobile
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || 
+                         ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
 
         function initializeVoiceAssistant() {
             const micBtn = document.getElementById('mic-button');
             let isDragging = false;
             let dragOffset = { x: 0, y: 0 };
             let isRecording = false;
-            let touchStartTime = 0;
-            let touchMoved = false;
-            let dragThreshold = 8; // pixels - reduced for better responsiveness
-            let initialTouchPos = { x: 0, y: 0 };
-            let longPressTimer = null;
-            let dragStarted = false;
+            let startTime = 0;
+            let startPosition = { x: 0, y: 0 };
+            let dragThreshold = isMobile ? 10 : 5;
+            let hasUserInteracted = false;
+            let gestureStarted = false;
 
-            // Check if MediaRecorder is supported
-            if (!window.MediaRecorder) {
-                micBtn.classList.add('disabled');
-                micBtn.querySelector('.mic-tooltip').textContent = 'Voice recording not supported';
-                micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
-                return;
-            }
-
-            // Get the best supported audio format
-            function getSupportedAudioFormat() {
-                const formats = [
-                    'audio/webm;codecs=opus',
-                    'audio/webm',
-                    'audio/mp4;codecs=aac',
-                    'audio/mp4',
-                    'audio/ogg;codecs=opus',
-                    'audio/ogg'
-                ];
-
-                for (const format of formats) {
-                    if (MediaRecorder.isTypeSupported(format)) {
-                        return format;
+            // Improved haptic feedback with proper gesture handling
+            function vibrateSafe(pattern = 50) {
+                if (navigator.vibrate && hasUserInteracted && gestureStarted) {
+                    try {
+                        navigator.vibrate(pattern);
+                    } catch (e) {
+                        console.debug('Vibration blocked:', e);
                     }
                 }
-                
-                return '';
             }
 
-            // Mouse events (for desktop)
-            micBtn.addEventListener('mousedown', handlePointerStart);
-            document.addEventListener('mousemove', handlePointerMove);
-            document.addEventListener('mouseup', handlePointerEnd);
-
-            // Touch events (for mobile) - with passive: false for preventDefault
-            micBtn.addEventListener('touchstart', handleTouchStart, { passive: false });
-            document.addEventListener('touchmove', handleTouchMove, { passive: false });
-            document.addEventListener('touchend', handleTouchEnd, { passive: false });
-
-            function handlePointerStart(e) {
-                if (isRecording || micBtn.classList.contains('disabled')) return;
+            // Primary interaction handler - ensures proper user gesture
+            function handlePointerDown(e) {
+                if (isRecording) return;
                 
-                touchStartTime = Date.now();
-                touchMoved = false;
-                dragStarted = false;
+                // Mark that a genuine user gesture has started
+                gestureStarted = true;
+                hasUserInteracted = true;
                 
-                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                // Immediate haptic feedback on touch start
+                vibrateSafe(30);
                 
-                initialTouchPos = { x: clientX, y: clientY };
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                
+                startTime = Date.now();
+                startPosition = { x: clientX, y: clientY };
                 
                 const rect = micBtn.getBoundingClientRect();
                 dragOffset.x = clientX - rect.left;
                 dragOffset.y = clientY - rect.top;
                 
-                // Clear any existing long press timer
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
+                // Visual feedback
+                micBtn.style.transform = 'scale(0.95)';
                 
-                e.preventDefault();
-                e.stopPropagation();
+                // Prevent default for touch events
+                if (e.touches) {
+                    e.preventDefault();
+                }
             }
 
-            function handleTouchStart(e) {
-                if (isRecording || micBtn.classList.contains('disabled')) return;
-                
-                touchStartTime = Date.now();
-                touchMoved = false;
-                dragStarted = false;
-                
-                const touch = e.touches[0];
-                initialTouchPos = { x: touch.clientX, y: touch.clientY };
-                
-                const rect = micBtn.getBoundingClientRect();
-                dragOffset.x = touch.clientX - rect.left;
-                dragOffset.y = touch.clientY - rect.top;
-                
-                // Clear any existing long press timer
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-                
-                e.preventDefault();
-                e.stopPropagation();
-            }
-
+            // Movement handler
             function handlePointerMove(e) {
-                if (isRecording || micBtn.classList.contains('disabled')) return;
+                if (isRecording || !startTime || !gestureStarted) return;
                 
-                const clientX = e.clientX || (e.touches && e.touches[0].clientX);
-                const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
                 
-                if (!clientX || !clientY) return;
+                const deltaX = Math.abs(clientX - startPosition.x);
+                const deltaY = Math.abs(clientY - startPosition.y);
                 
-                const deltaX = Math.abs(clientX - initialTouchPos.x);
-                const deltaY = Math.abs(clientY - initialTouchPos.y);
-                
-                if ((deltaX > dragThreshold || deltaY > dragThreshold) && !dragStarted) {
-                    dragStarted = true;
-                    touchMoved = true;
-                    startDragging();
+                // Start dragging if moved beyond threshold
+                if (!isDragging && (deltaX > dragThreshold || deltaY > dragThreshold)) {
+                    isDragging = true;
+                    micBtn.classList.add('dragging');
+                    document.body.classList.add('no-select');
+                    
+                    // Haptic feedback on drag initialization
+                    vibrateSafe([30, 20]);
                 }
                 
                 if (isDragging) {
                     const x = clientX - dragOffset.x;
                     const y = clientY - dragOffset.y;
                     
-                    const maxX = window.innerWidth - micBtn.offsetWidth;
-                    const maxY = window.innerHeight - micBtn.offsetHeight;
+                    // Keep button within viewport bounds
+                    const padding = 10;
+                    const maxX = window.innerWidth - micBtn.offsetWidth - padding;
+                    const maxY = window.innerHeight - micBtn.offsetHeight - padding;
                     
-                    const constrainedX = Math.max(0, Math.min(x, maxX));
-                    const constrainedY = Math.max(0, Math.min(y, maxY));
+                    const constrainedX = Math.max(padding, Math.min(x, maxX));
+                    const constrainedY = Math.max(padding, Math.min(y, maxY));
                     
-                    // Use transform for better performance during drag
-                    micBtn.style.transform = `translate3d(${constrainedX}px, ${constrainedY}px, 0)`;
-                    micBtn.style.left = 'auto';
-                    micBtn.style.top = 'auto';
-                    micBtn.style.right = 'auto';
-                    micBtn.style.bottom = 'auto';
-                }
-            }
-
-            function handleTouchMove(e) {
-                if (isRecording || micBtn.classList.contains('disabled')) return;
-                
-                const touch = e.touches[0];
-                const deltaX = Math.abs(touch.clientX - initialTouchPos.x);
-                const deltaY = Math.abs(touch.clientY - initialTouchPos.y);
-                
-                if ((deltaX > dragThreshold || deltaY > dragThreshold) && !dragStarted) {
-                    dragStarted = true;
-                    touchMoved = true;
-                    startDragging();
-                }
-                
-                if (isDragging) {
-                    const x = touch.clientX - dragOffset.x;
-                    const y = touch.clientY - dragOffset.y;
-                    
-                    const maxX = window.innerWidth - micBtn.offsetWidth;
-                    const maxY = window.innerHeight - micBtn.offsetHeight;
-                    
-                    const constrainedX = Math.max(0, Math.min(x, maxX));
-                    const constrainedY = Math.max(0, Math.min(y, maxY));
-                    
-                    // Use transform for better performance during drag
-                    micBtn.style.transform = `translate3d(${constrainedX}px, ${constrainedY}px, 0) scale(1.05)`;
-                    micBtn.style.left = 'auto';
-                    micBtn.style.top = 'auto';
+                    micBtn.style.left = constrainedX + 'px';
+                    micBtn.style.top = constrainedY + 'px';
                     micBtn.style.right = 'auto';
                     micBtn.style.bottom = 'auto';
                 }
                 
-                e.preventDefault();
+                if (e.touches) {
+                    e.preventDefault();
+                }
             }
 
-            function startDragging() {
-                isDragging = true;
-                micBtn.classList.add('dragging');
-                document.body.style.userSelect = 'none';
-            }
-
-            function stopDragging() {
+            // End handler
+            function handlePointerUp(e) {
+                if (!startTime || !gestureStarted) return;
+                
+                const endTime = Date.now();
+                const duration = endTime - startTime;
+                
                 if (isDragging) {
                     isDragging = false;
                     micBtn.classList.remove('dragging');
-                    document.body.style.userSelect = '';
+                    document.body.classList.remove('no-select');
                     
-                    // Convert transform back to position
-                    const rect = micBtn.getBoundingClientRect();
-                    micBtn.style.left = rect.left + 'px';
-                    micBtn.style.top = rect.top + 'px';
-                    micBtn.style.right = 'auto';
-                    micBtn.style.bottom = 'auto';
-                    micBtn.style.transform = 'translate3d(0, 0, 0)';
+                    // Haptic feedback on drag completion
+                    vibrateSafe(20);
+                } else if (duration < 500 && !isRecording) {
+                    // Short tap - trigger recording with haptic feedback
+                    vibrateSafe([50, 50]);
+                    setTimeout(() => handleVoiceCommand(), 50); // Small delay after haptic
                 }
+                
+                micBtn.style.transform = '';
+                startTime = 0;
+                gestureStarted = false; // Reset gesture state
             }
 
-            function handlePointerEnd(e) {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
+            // Event listeners using pointer events for better cross-platform support
+            if (window.PointerEvent) {
+                // Modern pointer events (preferred)
+                micBtn.addEventListener('pointerdown', handlePointerDown);
+                document.addEventListener('pointermove', handlePointerMove);
+                document.addEventListener('pointerup', handlePointerUp);
+            } else {
+                // Fallback to touch/mouse events
+                micBtn.addEventListener('touchstart', handlePointerDown, { passive: false });
+                document.addEventListener('touchmove', handlePointerMove, { passive: false });
+                document.addEventListener('touchend', handlePointerUp);
                 
-                if (isDragging) {
-                    stopDragging();
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-                
-                // Check if this was a tap/click (not a drag)
-                const touchDuration = Date.now() - touchStartTime;
-                if (!touchMoved && touchDuration < 500) {
-                    handleRecording();
-                }
+                micBtn.addEventListener('mousedown', handlePointerDown);
+                document.addEventListener('mousemove', handlePointerMove);
+                document.addEventListener('mouseup', handlePointerUp);
             }
 
-            function handleTouchEnd(e) {
-                if (longPressTimer) {
-                    clearTimeout(longPressTimer);
-                    longPressTimer = null;
-                }
-                
-                if (isDragging) {
-                    stopDragging();
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-                
-                // Check if this was a tap (not a drag)
-                const touchDuration = Date.now() - touchStartTime;
-                if (!touchMoved && touchDuration < 500) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    handleRecording();
-                }
-            }
-
-            // Fallback click handler for accessibility
-            micBtn.addEventListener('click', (e) => {
-                if (touchMoved || isDragging) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                }
-                
-                // Only trigger if not already handled by touch
-                if (!('ontouchstart' in window)) {
-                    handleRecording();
-                }
-            });
-
-            async function handleRecording() {
-                if (isRecording || micBtn.classList.contains('disabled')) return;
+            // Voice recording functionality
+            async function handleVoiceCommand() {
+                if (isRecording) return;
                 
                 try {
                     isRecording = true;
                     micBtn.classList.add('recording');
-                    micBtn.innerHTML = '⏹️<div class="mic-tooltip">Recording... (3s)</div>';
+                    micBtn.innerHTML = '⏹️<div class="mic-tooltip">Recording...</div>';
                     
-                    // Request microphone access with better error handling
-                    const stream = await navigator.mediaDevices.getUserMedia({ 
-                        audio: {
-                            echoCancellation: true,
-                            noiseSuppression: true,
-                            autoGainControl: true,
-                            sampleRate: 44100
-                        }
-                    });
+                    // Strong haptic feedback for recording start (only after gesture)
+                    vibrateSafe([100, 50, 100]);
                     
-                    const mimeType = getSupportedAudioFormat();
-                    console.log('Using audio format:', mimeType);
-                    
-                    const mediaRecorder = new MediaRecorder(stream, {
-                        mimeType: mimeType || undefined,
-                        audioBitsPerSecond: 128000
-                    });
-                    
-                    let audioChunks = [];
-
-                    mediaRecorder.ondataavailable = event => {
-                        if (event.data.size > 0) {
-                            audioChunks.push(event.data);
-                        }
-                    };
-                    
-                    mediaRecorder.onstop = async () => {
-                        stream.getTracks().forEach(track => track.stop());
-                        
-                        isRecording = false;
-                        micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
-                        
-                        if (audioChunks.length === 0) {
-                            throw new Error('No audio data recorded');
-                        }
-                        
-                        const actualMimeType = mediaRecorder.mimeType || mimeType || 'audio/webm';
-                        const blob = new Blob(audioChunks, { type: actualMimeType });
-                        
-                        let fileExtension = 'webm';
-                        if (actualMimeType.includes('mp4')) {
-                            fileExtension = 'mp4';
-                        } else if (actualMimeType.includes('ogg')) {
-                            fileExtension = 'ogg';
-                        }
-
-                        const formData = new FormData();
-                        formData.append('audio', blob, `command.${fileExtension}`);
-                        formData.append('mimeType', actualMimeType);
-
-                        try {
-                            micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
-                            
-                            // Production backend service call
-                            const response = await fetch('/voice-command', {
-                                method: 'POST',
-                                body: formData,
-                                headers: {
-                                    'Accept': 'application/json',
-                                }
-                            });
-
-                            if (!response.ok) {
-                                throw new Error(`Server error: ${response.status}`);
-                            }
-
-                            const result = await response.json();
-                            
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
-                            
-                            if (result.redirect_url) {
-                                const utterance = new SpeechSynthesisUtterance(result.speech_response);
-                                speechSynthesis.speak(utterance);
-                                utterance.onend = () => {
-                                    window.location.href = result.redirect_url;
-                                };
-                            } else if (result.speech_response) {
-                                speechSynthesis.speak(new SpeechSynthesisUtterance(result.speech_response));
-                            } else {
-                                speechSynthesis.speak(new SpeechSynthesisUtterance("Sorry, I didn't catch that."));
-                            }
-                            
-                        } catch (fetchError) {
-                            console.error('Voice command processing error:', fetchError);
-                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
-                            
-                            let errorMessage = "Sorry, there was an error processing your command.";
-                            
-                            if (fetchError.message.includes('404')) {
-                                errorMessage = "Voice service is currently unavailable.";
-                            } else if (fetchError.message.includes('500')) {
-                                errorMessage = "Server error. Please try again later.";
-                            } else if (!navigator.onLine) {
-                                errorMessage = "Please check your internet connection.";
-                            }
-                            
-                            if ('speechSynthesis' in window) {
-                                speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
-                            }
-                        }
-                    };
-
-                    mediaRecorder.onerror = (event) => {
-                        console.error('MediaRecorder error:', event.error);
-                        stream.getTracks().forEach(track => track.stop());
-                        isRecording = false;
-                        micBtn.classList.remove('recording');
-                        micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
-                    };
-
-                    mediaRecorder.start();
-                    
+                    // Mock recording functionality (replace with actual implementation)
                     setTimeout(() => {
-                        if (mediaRecorder.state === 'recording') {
-                            mediaRecorder.stop();
-                        }
-                    }, 3000);
+                        // Processing state
+                        micBtn.classList.remove('recording');
+                        micBtn.classList.add('processing');
+                        micBtn.innerHTML = '⏳<div class="mic-tooltip">Processing...</div>';
+                        
+                        // Mock processing delay
+                        setTimeout(() => {
+                            // Reset state
+                            isRecording = false;
+                            micBtn.classList.remove('processing');
+                            micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
+                            
+                            // Success haptic feedback
+                            vibrateSafe([50, 30, 50]);
+                            
+                            // Mock response
+                            if ('speechSynthesis' in window) {
+                                const utterance = new SpeechSynthesisUtterance("Voice command processed successfully!");
+                                utterance.rate = 0.9;
+                                speechSynthesis.speak(utterance);
+                            }
+                        }, 2000);
+                    }, 1500);
                     
                 } catch (error) {
                     console.error('Voice Assistant Error:', error);
@@ -510,77 +403,71 @@
                     micBtn.classList.remove('recording');
                     micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                     
-                    let errorMessage = "Microphone error occurred.";
-                    
-                    if (error.name === 'NotAllowedError') {
-                        errorMessage = "Please allow microphone access and try again.";
-                        micBtn.querySelector('.mic-tooltip').textContent = 'Microphone access denied';
-                        micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
-                    } else if (error.name === 'NotFoundError') {
-                        errorMessage = "No microphone found.";
-                        micBtn.querySelector('.mic-tooltip').textContent = 'No microphone found';
-                        micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
-                    } else if (error.name === 'NotSupportedError') {
-                        errorMessage = "Audio recording not supported in this browser.";
-                        micBtn.classList.add('disabled');
-                        micBtn.querySelector('.mic-tooltip').textContent = 'Recording not supported';
-                        micBtn.querySelector('.mic-tooltip').classList.add('error-tooltip');
-                    }
+                    // Error haptic feedback
+                    vibrateSafe([200, 100, 200]);
                     
                     if ('speechSynthesis' in window) {
-                        speechSynthesis.speak(new SpeechSynthesisUtterance(errorMessage));
+                        const errorMsg = new SpeechSynthesisUtterance("Error occurred. Please try again.");
+                        speechSynthesis.speak(errorMsg);
                     }
                 }
             }
 
-            // Prevent context menu on right-click
+            // Prevent context menu
             micBtn.addEventListener('contextmenu', (e) => {
                 e.preventDefault();
             });
 
-            // Handle window resize - maintain position
+            // Handle window resize
             window.addEventListener('resize', () => {
-                if (!isDragging) {
-                    const rect = micBtn.getBoundingClientRect();
-                    const maxX = window.innerWidth - micBtn.offsetWidth;
-                    const maxY = window.innerHeight - micBtn.offsetHeight;
-                    
-                    let needsUpdate = false;
-                    let newLeft = parseInt(micBtn.style.left) || rect.left;
-                    let newTop = parseInt(micBtn.style.top) || rect.top;
-                    
-                    if (newLeft > maxX) {
-                        newLeft = maxX;
-                        needsUpdate = true;
-                    }
-                    if (newTop > maxY) {
-                        newTop = maxY;
-                        needsUpdate = true;
-                    }
-                    
-                    if (needsUpdate) {
-                        micBtn.style.left = newLeft + 'px';
-                        micBtn.style.top = newTop + 'px';
-                        micBtn.style.right = 'auto';
-                        micBtn.style.bottom = 'auto';
-                    }
+                const rect = micBtn.getBoundingClientRect();
+                const padding = 10;
+                const maxX = window.innerWidth - micBtn.offsetWidth - padding;
+                const maxY = window.innerHeight - micBtn.offsetHeight - padding;
+                
+                if (rect.left > maxX) {
+                    micBtn.style.left = maxX + 'px';
+                }
+                if (rect.top > maxY) {
+                    micBtn.style.top = maxY + 'px';
                 }
             });
 
-            // Handle page visibility change to stop recording if page becomes hidden
+            // Show initial tooltip on mobile
+            if (isMobile) {
+                setTimeout(() => {
+                    micBtn.classList.add('show-tooltip');
+                    setTimeout(() => {
+                        micBtn.classList.remove('show-tooltip');
+                    }, 3000);
+                }, 1000);
+            }
+
+            // Handle visibility change
             document.addEventListener('visibilitychange', () => {
                 if (document.hidden && isRecording) {
-                    // Stop recording if page becomes hidden
-                    const mediaRecorder = window.currentMediaRecorder;
-                    if (mediaRecorder && mediaRecorder.state === 'recording') {
-                        mediaRecorder.stop();
-                    }
+                    isRecording = false;
+                    micBtn.classList.remove('recording');
+                    micBtn.innerHTML = '🎤<div class="mic-tooltip">Tap to record • Drag to move</div>';
                 }
             });
+
+            // Initial interaction prompt for iOS (helps with vibration permissions)
+            if (isMobile && /iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                const initialTapHandler = () => {
+                    hasUserInteracted = true;
+                    document.removeEventListener('touchstart', initialTapHandler);
+                };
+                document.addEventListener('touchstart', initialTapHandler, { once: true });
+            }
         }
 
-        // Load the footer when page loads
-        document.addEventListener('DOMContentLoaded', loadFooter);
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeVoiceAssistant);
+        } else {
+            initializeVoiceAssistant();
+        }
     </script>
 </body>
 </html>
